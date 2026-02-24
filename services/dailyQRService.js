@@ -8,6 +8,14 @@ const qrGenerator = require("../utils/qrGenerator");
 const { sendEmail, buildDailyQREmail } = require("../utils/emailService");
 const mdmService = require("../utils/mdmService");
 
+// basic slugify for filenames/ids
+const slugify = (str) =>
+  String(str || "facility")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
 // Helper: delete file safely
 const safeUnlink = async (filePath) => {
   try {
@@ -53,16 +61,23 @@ async function generateDailyQRsForFacility(facility, dateStr) {
   // Generate validity window (1 day)
   const validFrom = dayStart;
   const validUntil = dayEnd;
+  const slug = slugify(facility.name);
 
   // Entry QR
-  const entry = await qrGenerator.generateCompleteQRCode("lock", facility._id, {
-    location: facility.name,
-    type: "entry",
-  });
+  const entry = await qrGenerator.generateCompleteQRCode(
+    "lock",
+    facility._id,
+    {
+      location: facility.name,
+      type: "entry",
+    },
+    { qrCodeId: `${slug}_Entry_Code_${dateStr}` }
+  );
 
   const entryDoc = await QRCode.create({
     qrCodeId: entry.qrCodeId,
     facilityId: facility._id,
+    facilityName: facility.name,
     type: "entry",
     action: "lock",
     token: entry.token,
@@ -82,12 +97,14 @@ async function generateDailyQRsForFacility(facility, dateStr) {
     {
       location: facility.name,
       type: "exit",
-    }
+    },
+    { qrCodeId: `${slug}_Exit_Code_${dateStr}` }
   );
 
   const exitDoc = await QRCode.create({
     qrCodeId: exit.qrCodeId,
     facilityId: facility._id,
+    facilityName: facility.name,
     type: "exit",
     action: "unlock",
     token: exit.token,

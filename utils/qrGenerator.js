@@ -5,8 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 const { generateQRToken } = require('./jwt');
 
 // Generate QR code data
-exports.generateQRData = (action, facilityId, metadata = {}) => {
-  const qrCodeId = uuidv4();
+exports.generateQRData = (action, facilityId, metadata = {}, qrCodeIdOverride) => {
+  const qrCodeId = qrCodeIdOverride || uuidv4();
   
   const payload = {
     qrCodeId,
@@ -80,10 +80,10 @@ exports.saveQRImage = async (data, filename, outputDir = './uploads/qr-codes') =
 };
 
 // Generate complete QR code (data + image)
-exports.generateCompleteQRCode = async (action, facilityId, metadata = {}) => {
+exports.generateCompleteQRCode = async (action, facilityId, metadata = {}, options = {}) => {
   try {
     // Generate QR data
-    const qrData = this.generateQRData(action, facilityId, metadata);
+    const qrData = this.generateQRData(action, facilityId, metadata, options.qrCodeId);
     
     // Generate URL
     const url = this.generateQRURL(qrData.token, action);

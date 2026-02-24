@@ -28,17 +28,6 @@ cp .env.example .env
 mkdir -p uploads/qr-codes
 ```
 
-### 4. Seed Database
-```bash
-node scripts/seed.js
-```
-
-**Default Admin Credentials:**
-- Email: `admin@example.com`
-- Password: `Admin@123456`
-
-⚠️ **Change these credentials after first login!**
-
 ### 5. Start Server
 ```bash
 # Development mode (with auto-reload)
@@ -92,16 +81,10 @@ Save the `facility._id` from the response.
 
 ### 8. Generate QR Codes
 ```bash
-# Using API
-curl -X POST http://localhost:5000/api/qr/generate \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "facilityId": "YOUR_FACILITY_ID",
-    "metadata": {"location": "Main Entrance"}
-  }'
-
-# OR using script
+# Using script
+# All facilities:
+node scripts/generateQR.js all
+# Single facility (Mongo _id or facilityId string):
 node scripts/generateQR.js YOUR_FACILITY_ID
 ```
 

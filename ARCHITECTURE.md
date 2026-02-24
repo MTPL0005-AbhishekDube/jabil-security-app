@@ -182,8 +182,7 @@ security-app-backend/
 │   ├── qrGenerator.js          # QR code generation
 │   └── mdmService.js           # MDM integration
 │
-├── scripts/                     # Utility scripts
-│   ├── seed.js                 # Database seeding
+├── scripts/                    # Utility scripts│             
 │   └── generateQR.js           # QR code generator CLI
 │
 └── uploads/                     # File uploads

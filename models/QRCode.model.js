@@ -11,6 +11,10 @@ const qrCodeSchema = new mongoose.Schema({
     ref: 'Facility',
     required: true
   },
+  facilityName: {
+    type: String,
+    trim: true
+  },
   type: {
     type: String,
     enum: ['entry', 'exit', 'emergency'],

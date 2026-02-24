@@ -56,7 +56,7 @@
               ],
               "path": [
                 "facilities",
-                "public"
+                "create-facility"
               ]
             }
           }
