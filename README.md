@@ -7,6 +7,7 @@ A streamlined Node.js backend for the Security App. This backend handles device 
 - **Entry Scan**: Validates entry QR and locks camera.
 - **Exit Scan**: Validates exit QR and unlocks camera.
 - **Setup**: Script to generate Entry/Exit QRs for testing.
+- **Daily QR Rotation**: Generates per-facility Entry/Exit QR codes daily, emails them to facility contacts, and expires prior codes/devices automatically.
 
 ## 📋 Prerequisites
 
@@ -27,6 +28,13 @@ A streamlined Node.js backend for the Security App. This backend handles device 
    PORT=5000
    MONGODB_URI=mongodb://localhost:27017/security-app-system
    JWT_SECRET=your-secret
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USER=example@example.com
+   SMTP_PASS=example-password
+   EMAIL_FROM=Security App <no-reply@example.com>
+   DAILY_QR_CRON=0 12 * * *
+   DAILY_QR_TZ=UTC
    ```
 
 3. **Run Setup (Generates QRs)**

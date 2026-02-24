@@ -3,6 +3,7 @@
 ## Prerequisites
 - Node.js v14+ installed
 - MongoDB v4.4+ running
+- SMTP credentials (for daily QR email)
 - Postman (optional, for API testing)
 
 ## Step-by-Step Setup
@@ -104,7 +105,7 @@ curl -X POST http://localhost:5000/api/qr/generate \
 node scripts/generateQR.js YOUR_FACILITY_ID
 ```
 
-QR code images will be saved in: `uploads/qr-codes/`
+QR code images (including printable variants) will be saved in: `uploads/qr-codes/`
 
 ### 9. Test Enrollment Flow
 

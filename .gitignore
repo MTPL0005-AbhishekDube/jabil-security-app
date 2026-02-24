@@ -40,11 +40,5 @@ build/
 .DS_Store
 Thumbs.db
 
-# Uploads
-uploads/
-qr-codes/
-
-printable_qrs/
-
 # Test
 test-results/-Removed the unused code and improved code quality.

@@ -28,6 +28,16 @@ const facilitySchema = new mongoose.Schema(
       },
     },
 
+    notificationEmails: {
+      type: [String],
+      default: [],
+    },
+    timezone: {
+      type: String,
+      default: 'UTC',
+      trim: true,
+    },
+
     status: {
       type: String,
       enum: ["active", "inactive", "maintenance"],
@@ -54,5 +64,6 @@ const facilitySchema = new mongoose.Schema(
 // Index for faster queries
 facilitySchema.index({ facilityId: 1 });
 facilitySchema.index({ status: 1 });
+facilitySchema.index({ name: 1 });
 
 module.exports = mongoose.model("Facility", facilitySchema);

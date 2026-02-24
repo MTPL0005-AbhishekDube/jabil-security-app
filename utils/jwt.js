@@ -9,7 +9,7 @@ exports.generateQRToken = (data) => {
   };
   
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.QR_TOKEN_EXPIRE || '30d'
+    expiresIn: process.env.QR_TOKEN_EXPIRE
   });
 };
 

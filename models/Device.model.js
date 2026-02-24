@@ -28,6 +28,10 @@ const deviceSchema = new mongoose.Schema(
       enum: ["active", "inactive", "blocked"],
       default: "inactive",
     },
+    lastEnrollment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Enrollment",
+    },
     lastActivity: {
       type: Date,
       default: Date.now,

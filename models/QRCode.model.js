@@ -51,6 +51,10 @@ const qrCodeSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  generatedForDate: {
+    type: String, // YYYY-MM-DD
+    index: true
+  },
   scanCount: {
     type: Number,
     default: 0
@@ -79,6 +83,7 @@ qrCodeSchema.index({ qrCodeId: 1 });
 qrCodeSchema.index({ facilityId: 1, type: 1 });
 qrCodeSchema.index({ status: 1 });
 qrCodeSchema.index({ validUntil: 1 });
+qrCodeSchema.index({ generatedForDate: 1 });
 
 // Method to check if QR code is valid
 qrCodeSchema.methods.isValid = function() {

@@ -37,6 +37,14 @@ const enrollmentSchema = new mongoose.Schema(
       enum: ["active", "completed", "expired", "forced_exit", "emergency_exit"],
       default: "active",
     },
+    initiatedBy: {
+      type: String,
+      trim: true,
+    },
+    reason: {
+      type: String,
+      trim: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -57,6 +65,7 @@ enrollmentSchema.index({ deviceId: 1 });
 enrollmentSchema.index({ facilityId: 1 });
 enrollmentSchema.index({ status: 1 });
 enrollmentSchema.index({ enrolledAt: 1 });
+enrollmentSchema.index({ unenrolledAt: 1 });
 
 // Method to complete enrollment
 enrollmentSchema.methods.complete = async function (exitQRCode) {

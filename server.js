@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const axios = require('axios');
+const { scheduleDailyJob } = require('./services/dailyQRService');
 
 // Import routes
 const enrollmentRoutes = require('./routes/enrollment.routes');
@@ -81,6 +82,9 @@ mongoose.connect(process.env.MONGODB_URI)
             .catch(e => console.error('Self-ping failed:', e.message));
         }, 14 * 60 * 1000); // 14 minutes
       }
+
+      // Start daily QR rotation + emailer
+      scheduleDailyJob();
     });
   })
   .catch((err) => {

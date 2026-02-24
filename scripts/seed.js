@@ -28,7 +28,7 @@ const seedDatabase = async () => {
 
       console.log("Super admin created:");
       console.log(`Email: ${admin.email}`);
-      console.log(`Password: ${process.env.ADMIN_PASSWORD || "Admin@123456"}`);
+      console.log(`Password: ${process.env.ADMIN_PASSWORD}`);
       console.log("Please change the password after first login!");
     } else {
       console.log("Super admin already exists");

@@ -17,7 +17,8 @@ const generatePrintableQRs = async () => {
     console.log('Connected to MongoDB');
 
     // Create output directory
-    const outputDir = path.join(__dirname, '../printable_qrs');
+    // Reuse the main QR image directory so everything lives in one place
+    const outputDir = path.join(__dirname, '../uploads/qr-codes');
     if (!fs.existsSync(outputDir)){
         fs.mkdirSync(outputDir);
     }
@@ -39,7 +40,7 @@ const generatePrintableQRs = async () => {
                 light: '#ffffff'
             }
         });
-        console.log(`Saved printable image to: printable_qrs/ENTRY_SCAN_ME.png`);
+        console.log(`Saved printable image to: uploads/qr-codes/ENTRY_SCAN_ME.png`);
     } else {
         console.log('No Active Entry QR found. Please run "npm run setup" first.');
     }
@@ -61,12 +62,12 @@ const generatePrintableQRs = async () => {
                 light: '#ffffff'
             }
         });
-        console.log(`Saved printable image to: printable_qrs/EXIT_SCAN_ME.png`);
+        console.log(`Saved printable image to: uploads/qr-codes/EXIT_SCAN_ME.png`);
     } else {
         console.log('No Active Exit QR found. Please run "npm run setup" first.');
     }
 
-    console.log('\nDone! You can now print the images in the "printable_qrs" folder.');
+    console.log('\nDone! You can now print the images in the "uploads/qr-codes" folder.');
     process.exit(0);
 
   } catch (error) {

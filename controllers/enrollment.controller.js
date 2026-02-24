@@ -129,6 +129,7 @@ exports.scanEntry = async (req, res) => {
     // Update device status
     device.status = 'active';
     device.currentFacility = qrCode.facilityId._id;
+    device.lastEnrollment = enrollment._id;
     await device.save();
 
     // Record scan on QR code
@@ -161,7 +162,8 @@ exports.scanExit = async (req, res) => {
   try {
     const { token, deviceId } = req.body;
 
-    if (!token || !deviceId) {
+    // Need deviceId and QR token (user flow)
+    if (!deviceId || !token) {
       return res.status(400).json({
         status: 'error',
         message: 'Token and deviceId are required'
@@ -180,9 +182,7 @@ exports.scanExit = async (req, res) => {
     }
 
     // Find QR code
-    const qrCode = await QRCode.findOne({ 
-      qrCodeId: decoded.qrCodeId 
-    });
+    const qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId });
 
     if (!qrCode || !qrCode.isValid()) {
       return res.status(400).json({
@@ -240,7 +240,7 @@ exports.scanExit = async (req, res) => {
       });
     }
 
-    // Unlock camera
+    // Unlock camera (skip if already forced exit in past)
     const unlockResult = await mdmService.unlockCamera(
       deviceId, 
       device.deviceInfo.platform
@@ -263,6 +263,7 @@ exports.scanExit = async (req, res) => {
     // Update device status
     device.status = 'inactive';
     device.currentFacility = null;
+    device.lastEnrollment = enrollment._id;
     await device.save();
 
     // Record scan
@@ -279,6 +280,74 @@ exports.scanExit = async (req, res) => {
 
   } catch (error) {
     console.error('Scan exit error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Admin: force exit (unlock) when user forgot to scan exit
+// @route   POST /api/enrollments/admin/force-exit
+// @note    Protect this route with auth middleware when available.
+exports.forceExitAdmin = async (req, res) => {
+  try {
+    const { enrollmentId, reason, initiatedBy, deviceId } = req.body;
+
+    if (!enrollmentId && !deviceId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'enrollmentId or deviceId is required'
+      }); 
+    }
+
+    // Find enrollment by id or by active device
+    let enrollment = null;
+    if (enrollmentId) {
+      enrollment = await Enrollment.findOne({ enrollmentId, status: 'active' }).populate('deviceId');
+    }
+    if (!enrollment && deviceId) {
+      const device = await Device.findOne({ deviceId });
+      if (device) {
+        enrollment = await Enrollment.findOne({ deviceId: device._id, status: 'active' }).populate('deviceId');
+      }
+    }
+
+    if (!enrollment || !enrollment.deviceId) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Active enrollment not found'
+      });
+    }
+
+    const device = enrollment.deviceId;
+
+    // Unlock camera
+    await mdmService.unlockCamera(device.deviceId, device.deviceInfo.platform);
+
+    // Update enrollment & device
+    enrollment.status = 'forced_exit';
+    enrollment.unenrolledAt = new Date();
+    if (initiatedBy) enrollment.initiatedBy = initiatedBy;
+    if (reason) enrollment.reason = reason;
+    await enrollment.save();
+
+    device.status = 'inactive';
+    device.currentFacility = null;
+    device.lastEnrollment = enrollment._id;
+    await device.save();
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Device exited and camera unlocked by admin',
+      data: {
+        action: 'UNLOCK_CAMERA',
+        enrollmentId: enrollment.enrollmentId
+      }
+    });
+  } catch (error) {
+    console.error('Admin force-exit error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Internal server error',
