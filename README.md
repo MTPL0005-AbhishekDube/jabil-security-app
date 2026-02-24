@@ -44,7 +44,19 @@ A streamlined Node.js backend for the Security App. This backend handles device 
    ```
    **Copy the tokens output by this script.** You will use them in your API requests.
 
-4. **Start the server**
+4. **(Optional) Create a facility without admin**
+   ```bash
+   curl -X POST http://localhost:5000/api/facilities/create-facility \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Main Building",
+       "description": "Primary site",
+       "notificationEmails": ["you@example.com"],
+       "timezone": "UTC"
+     }'
+   ```
+
+5. **Start the server**
    ```bash
    npm start
    ```

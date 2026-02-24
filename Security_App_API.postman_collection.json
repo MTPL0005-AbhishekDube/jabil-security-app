@@ -11,6 +11,11 @@
       "type": "string"
     },
     {
+      "key": "facility_id",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "device_id",
       "value": "test-device-123",
       "type": "string"
@@ -27,6 +32,37 @@
     }
   ],
   "item": [
+    {
+      "name": "Facilities",
+      "item": [
+        {
+          "name": "Create Facility",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Building\",\n  \"description\": \"Primary site\",\n  \"location\": {\n    \"address\": \"123 Main Street\",\n    \"city\": \"Indore\",\n    \"state\": \"MP\",\n    \"country\": \"India\"\n  },\n  \"notificationEmails\": [\"you@example.com\"],\n  \"timezone\": \"Asia/Kolkata\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/facilities/create-facility",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "facilities",
+                "public"
+              ]
+            }
+          }
+        }
+      ]
+    },
     {
       "name": "Health",
       "item": [

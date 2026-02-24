@@ -10,6 +10,7 @@ const { scheduleDailyJob } = require('./services/dailyQRService');
 
 // Import routes
 const enrollmentRoutes = require('./routes/enrollment.routes');
+const facilityRoutes = require("./routes/facility.routes");
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -50,6 +51,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/enrollments', enrollmentRoutes);
+app.use('/api/facilities', facilityRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
