@@ -85,17 +85,23 @@ exports.generateCompleteQRCode = async (action, facilityId, metadata = {}, optio
     // Generate QR data
     const qrData = this.generateQRData(action, facilityId, metadata, options.qrCodeId);
     
-    // Generate URL
-    const url = this.generateQRURL(qrData.token, action);
+    // Build deep link URL (kept for reference/clients that want it)
+    const deepLink = this.generateQRURL(qrData.token, action);
+    // Decide what to actually encode into the QR image:
+    // - default: just the raw token (simpler for clients that expect token-only)
+    // - opt-in: set QR_ENCODE_MODE=deeplink to embed the deep link instead
+    const encodeMode = process.env.QR_ENCODE_MODE === 'deeplink' ? 'deeplink' : 'token';
+    const qrContent = encodeMode === 'deeplink' ? deepLink : qrData.token;
     
     // Generate and save image
     const filename = `${qrData.qrCodeId}.png`;
-    const imagePath = await this.saveQRImage(url, filename);
+    const imagePath = await this.saveQRImage(qrContent, filename);
     
     return {
       qrCodeId: qrData.qrCodeId,
       token: qrData.token,
-      url,
+      url: deepLink,          // deep link preserved for clients that need it
+      encoded: qrContent,     // what was actually embedded in the QR image
       imagePath,
       payload: qrData.payload
     };

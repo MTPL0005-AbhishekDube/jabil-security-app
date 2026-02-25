@@ -6,6 +6,33 @@ const mdmService = require('../utils/mdmService');
 const { verifyToken } = require('../utils/jwt');
 const { v4: uuidv4 } = require('uuid');
 
+// Normalize incoming token:
+// - Strip surrounding braces
+// - If a deep link like security-app://enroll?...&token=JWT, extract the token param
+const normalizeToken = (rawToken) => {
+  if (!rawToken) return null;
+  let t = String(rawToken).trim();
+  t = t.replace(/^[{]/, '').replace(/[}]$/, ''); // remove stray braces
+
+  if (t.includes('token=')) {
+    // Attempt URL parse first
+    try {
+      const url = new URL(t);
+      const param = url.searchParams.get('token');
+      if (param) t = param;
+    } catch (err) {
+      // Fallback manual parse for custom schemes
+      const idx = t.indexOf('token=');
+      if (idx >= 0) {
+        t = t.slice(idx + 'token='.length);
+        const amp = t.indexOf('&');
+        if (amp >= 0) t = t.slice(0, amp);
+      }
+    }
+  }
+  return t;
+};
+
 // @desc    Scan entry QR and enroll device (lock camera)
 // @route   POST /api/enrollments/scan-entry
 exports.scanEntry = async (req, res) => {
@@ -16,29 +43,37 @@ exports.scanEntry = async (req, res) => {
       deviceInfo 
     } = req.body;
 
+    // Normalize token in case mobile passes deep link URL
+    const normalizedToken = normalizeToken(token);
+
+    console.log("Values", token, "->", normalizedToken, deviceId, deviceInfo);
+
     // Validate required fields
-    if (!token || !deviceId || !deviceInfo) {
+    if (!normalizedToken || !deviceId || !deviceInfo) {
       return res.status(400).json({
         status: 'error',
         message: 'Token, deviceId, and deviceInfo are required'
       });
     }
 
-    // Verify token
+    // Verify token (JWT). If it fails, try fallback lookup by raw token value.
     let decoded;
+    let qrCode;
     try {
-      decoded = verifyToken(token);
+      decoded = verifyToken(normalizedToken);
+      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId }).populate('facilityId');
     } catch (error) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid or expired token'
-      });
+      // Fallback: token might already be the stored token string (e.g., older QR flow)
+      qrCode = await QRCode.findOne({ token: normalizedToken }).populate('facilityId');
+      if (qrCode) {
+        decoded = { qrCodeId: qrCode.qrCodeId };
+      } else {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid or expired token'
+        });
+      }
     }
-
-    // Find QR code in database
-    const qrCode = await QRCode.findOne({ 
-      qrCodeId: decoded.qrCodeId 
-    }).populate('facilityId');
 
     if (!qrCode || !qrCode.isValid()) {
       return res.status(400).json({
@@ -170,19 +205,32 @@ exports.scanExit = async (req, res) => {
       });
     }
 
-    // Verify token
+    // Verify token (JWT). If verification fails, try raw token lookup.
     let decoded;
-    try {
-      decoded = verifyToken(token);
-    } catch (error) {
+    let qrCode;
+    const normalizedToken = normalizeToken(token);
+
+    if (!normalizedToken) {
       return res.status(400).json({
         status: 'error',
-        message: 'Invalid or expired token'
+        message: 'Token and deviceId are required'
       });
     }
 
-    // Find QR code
-    const qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId });
+    try {
+      decoded = verifyToken(normalizedToken);
+      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId });
+    } catch (error) {
+      qrCode = await QRCode.findOne({ token: normalizedToken });
+      if (qrCode) {
+        decoded = { qrCodeId: qrCode.qrCodeId };
+      } else {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid or expired token'
+        });
+      }
+    }
 
     if (!qrCode || !qrCode.isValid()) {
       return res.status(400).json({
