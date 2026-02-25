@@ -127,7 +127,7 @@ async function generateDailyQRsForFacility(facility, dateStr) {
     try {
       await sendEmail({
         to: facility.notificationEmails,
-        subject: `[Daily QR] ${facility.name} — ${dateStr}`,
+        subject: `Daily QR ${facility.name} — ${dateStr}`,
         html,
         attachments: [
           {
@@ -183,7 +183,7 @@ async function expireActiveEnrollmentsForFacility(facilityId, cutoff) {
 
 // Run daily job at 00:05 server time (can be aligned per facility TZ later)
 function scheduleDailyJob() {
-  const cronExp = process.env.DAILY_QR_CRON || "0 12 * * *"; // default 12:00 daily
+  const cronExp = process.env.DAILY_QR_CRON || "0 0 * * *"; // default midnight daily
   const timezone = process.env.DAILY_QR_TZ || "UTC";
 
   cron.schedule(

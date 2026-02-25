@@ -33,7 +33,7 @@ A streamlined Node.js backend for the Security App. This backend handles device 
    SMTP_USER=example@example.com
    SMTP_PASS=example-password
    EMAIL_FROM=Security App <no-reply@example.com>
-   DAILY_QR_CRON=0 12 * * *
+   DAILY_QR_CRON=0 0 * * *
    DAILY_QR_TZ=UTC
    ```
 
@@ -61,7 +61,7 @@ A streamlined Node.js backend for the Security App. This backend handles device 
    npm start
    ```
 
-   **Production cron:** set `DAILY_QR_CRON=0 12 * * *` and `DAILY_QR_TZ` to your plant timezone so QR generation + email runs once per day at noon. Avoid using the rapid cron (`*/2 * * * *`) outside of testing.
+   **Production cron:** set `DAILY_QR_CRON=0 0 * * *` and `DAILY_QR_TZ` to your plant timezone so QR generation + email runs once per day at noon. Avoid using the rapid cron (`*/2 * * * *`) outside of testing.
    Server runs on `http://localhost:5000`.
 
 ## 📚 API Endpoints

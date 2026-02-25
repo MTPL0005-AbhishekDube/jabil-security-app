@@ -1,7 +1,7 @@
 {
   "name": "security-app-backend",
-  "version": "1.0.0",
-  "description": "Backend server for security app MDM system",
+  "version": "1.1.0",
+  "description": "Backend server for security app system",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
