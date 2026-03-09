@@ -4,6 +4,7 @@ const QRCode = require("../models/QRCode.model");
 const mdmService = require("../utils/mdmService");
 const { verifyToken, verifyRestoreToken } = require("../utils/jwt");
 const { v4: uuidv4 } = require("uuid");
+const { generateNextVisitorId } = require("../utils/visitorId");
 
 // Normalize incoming token:
 // - Strip surrounding braces
@@ -97,11 +98,15 @@ exports.scanEntry = async (req, res) => {
         deviceInfo,
         status: "inactive",
         pushToken,
+        visitorId: await generateNextVisitorId(),
       });
     } else {
       // Update device info
       device.deviceInfo = deviceInfo;
       if (pushToken) device.pushToken = pushToken;
+      if (!device.visitorId) {
+        device.visitorId = await generateNextVisitorId();
+      }
       await device.save();
     }
 
@@ -127,6 +132,7 @@ exports.scanEntry = async (req, res) => {
           data: {
             enrollmentId: existingEnrollment.enrollmentId,
             facilityName: qrCode.facilityId.name,
+            visitorId: device.visitorId,
             action: "LOCK_CAMERA",
           },
         });
@@ -193,6 +199,7 @@ exports.scanEntry = async (req, res) => {
       data: {
         enrollmentId: enrollment.enrollmentId,
         facilityName: qrCode.facilityId.name,
+        visitorId: device.visitorId,
         action: "LOCK_CAMERA",
       },
     });
@@ -233,9 +240,13 @@ exports.scanExit = async (req, res) => {
 
     try {
       decoded = verifyToken(normalizedToken);
-      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId });
+      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId }).populate(
+        "facilityId"
+      );
     } catch (error) {
-      qrCode = await QRCode.findOne({ token: normalizedToken });
+      qrCode = await QRCode.findOne({ token: normalizedToken }).populate(
+        "facilityId"
+      );
       if (qrCode) {
         decoded = { qrCodeId: qrCode.qrCodeId };
       } else {
@@ -265,15 +276,9 @@ exports.scanExit = async (req, res) => {
     const device = await Device.findOne({ deviceId });
 
     if (!device) {
-      // EDGE CASE 3: Device not found (never enrolled)
-      // Action: Return 200 OK with UNLOCK command (Safety net)
-      // Even if we don't know them, if they scan exit, we should ensure their camera is unlocked.
-      return res.status(200).json({
-        status: "success",
-        message: "Exit allowed (Device not registered)",
-        data: {
-          action: "UNLOCK_CAMERA",
-        },
+      return res.status(404).json({
+        status: "error",
+        message: "Device not found",
       });
     }
 
@@ -284,18 +289,20 @@ exports.scanExit = async (req, res) => {
     });
 
     if (!enrollment) {
-      // EDGE CASE 4: Device exists but no active enrollment (Already exited or never entered)
-      // Action: Return 200 OK with UNLOCK command (Idempotent success)
+      return res.status(404).json({
+        status: "error",
+        message: "No active enrollment for this device",
+      });
+    }
 
-      // Force unlock just in case
-      await mdmService.unlockCamera(deviceId, device.deviceInfo.platform);
-
-      return res.status(200).json({
-        status: "success",
-        message: "Exit allowed (Already checked out)",
-        data: {
-          action: "UNLOCK_CAMERA",
-        },
+    if (
+      !qrCode.facilityId ||
+      enrollment.facilityId.toString() !== qrCode.facilityId._id.toString()
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Exit QR belongs to a different facility. Please scan the exit QR for your current enrollment.",
       });
     }
 

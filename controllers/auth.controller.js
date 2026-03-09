@@ -1,7 +1,7 @@
 const Admin = require("../models/Admin.model");
 const jwt = require("jsonwebtoken");
 
-const TOKEN_TTL = process.env.ADMIN_TOKEN_EXPIRE || "7d";
+const TOKEN_TTL = process.env.ADMIN_TOKEN_EXPIRE || "15d";
 
 const signAdminToken = (admin) =>
   jwt.sign(

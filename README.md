@@ -27,8 +27,8 @@ npm install
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/security-app-system
 JWT_SECRET=change-me
-ADMIN_TOKEN_EXPIRE=7d
-RESTORE_TOKEN_EXPIRE=10m
+ADMIN_TOKEN_EXPIRE=15d
+RESTORE_TOKEN_EXPIRE=2h
 ALLOWED_ORIGINS=http://localhost:3000
 FCM_SERVER_KEY=your-fcm-key
 SMTP_HOST=smtp.example.com

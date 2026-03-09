@@ -22,7 +22,7 @@ exports.generateRestoreToken = (data = {}) => {
   };
 
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.RESTORE_TOKEN_EXPIRE || "10m",
+    expiresIn: process.env.RESTORE_TOKEN_EXPIRE || "2h",
   });
 };
 

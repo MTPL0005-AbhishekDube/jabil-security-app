@@ -8,7 +8,11 @@ module.exports = async function auth(req, res, next) {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
     if (!token) {
-      return res.status(401).json({ status: "error", message: "Unauthorized" });
+      return res.status(401).json({
+        status: "error",
+        message:
+          "Your session has expired or you are not logged in. Please log in to continue.",
+      });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -28,8 +32,11 @@ module.exports = async function auth(req, res, next) {
     req.admin = admin;
     next();
   } catch (err) {
-    return res
-      .status(401)
-      .json({ status: "error", message: "Unauthorized", error: err.message });
+    return res.status(401).json({
+      status: "error",
+      message:
+        "Your session has expired or you are not logged in. Please log in to continue.",
+      error: err.message,
+    });
   }
 };

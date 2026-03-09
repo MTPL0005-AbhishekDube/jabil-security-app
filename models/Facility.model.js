@@ -27,17 +27,15 @@ const facilitySchema = new mongoose.Schema(
         longitude: Number,
       },
     },
-
     notificationEmails: {
       type: [String],
       default: [],
     },
     timezone: {
       type: String,
-      default: 'UTC',
+      default: "UTC",
       trim: true,
     },
-
     status: {
       type: String,
       enum: ["active", "inactive", "maintenance"],

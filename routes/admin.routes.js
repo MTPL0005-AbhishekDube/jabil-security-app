@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const {
   createFacility,
-  listFacilities,
+  getAllFacilities,
   getFacilityById,
   updateFacility,
   deleteFacility,
@@ -27,7 +27,7 @@ router.get("/admins/:id", getAdminById);
 
 // Facility CRUD only for (admin)
 router.post("/facilities", createFacility);
-router.get("/facilities", listFacilities);
+router.get("/facilities", getAllFacilities);
 router.get("/facilities/:id", getFacilityById);
 router.put("/facilities/:id", updateFacility);
 router.delete("/facilities/:id", deleteFacility);

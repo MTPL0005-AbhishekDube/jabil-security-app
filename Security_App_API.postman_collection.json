@@ -74,7 +74,7 @@
       ]
     },
     {
-      "name": "Admin Auth",
+      "name": "Auth",
       "item": [
         {
           "name": "Admin Register",
@@ -105,11 +105,11 @@
       ]
     },
     {
-      "name": "Admin Facilities",
+      "name": "Facilities",
       "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{admin_token}}", "type": "string" } ] },
       "item": [
         {
-          "name": "Create Facility (admin)",
+          "name": "Facility",
           "request": {
             "method": "POST",
             "header": [ { "key": "Content-Type", "value": "application/json" } ],
@@ -159,7 +159,7 @@
           }
         },
         {
-          "name": "Delete Facility (soft inactivate)",
+          "name": "Delete Facility",
           "request": {
             "method": "DELETE",
             "url": { "raw": "{{api_base}}/admin/facilities/{{facility_id}}", "host": ["{{base_url}}"], "path": ["api", "admin", "facilities", "{{facility_id}}"] }
@@ -168,7 +168,7 @@
       ]
     },
     {
-      "name": "Admin Devices",
+      "name": "Devices",
       "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{admin_token}}", "type": "string" } ] },
       "item": [
         {
@@ -195,7 +195,7 @@
           }
         },
         {
-          "name": "Force Exit (admin protected)",
+          "name": "Force Exit",
           "request": {
             "method": "POST",
             "header": [ { "key": "Content-Type", "value": "application/json" } ],

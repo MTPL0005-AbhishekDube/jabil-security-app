@@ -12,15 +12,16 @@ exports.listActiveDevices = async (req, res) => {
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
     const skip = (pageNum - 1) * limitNum;
 
-    const filter = { status: "active" };
-    if (q) {
-      const regex = new RegExp(q, "i");
-      filter.$or = [
-        { deviceId: regex },
-        { visitorId: regex },
-        { "deviceInfo.model": regex },
-      ];
-    }
+  const filter = { status: "active" };
+  if (q) {
+    const regex = new RegExp(q, "i");
+    filter.$or = [
+      { deviceId: regex },
+      { visitorId: regex },
+      { "deviceInfo.deviceName": regex },
+      { "deviceInfo.model": regex },
+    ];
+  }
 
     const [items, total] = await Promise.all([
       Device.find(filter)

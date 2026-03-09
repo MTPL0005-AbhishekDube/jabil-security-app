@@ -70,7 +70,7 @@ exports.createFacility = async (req, res) => {
 
 // @desc    Admin: list facilities with pagination/search
 // @route   GET /api/admin/facilities
-exports.listFacilities = async (req, res) => {
+exports.getAllFacilities = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, q } = req.query;
 
