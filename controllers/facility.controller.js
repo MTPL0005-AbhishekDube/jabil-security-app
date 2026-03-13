@@ -7,6 +7,7 @@ const {
   detachDevicesAndEnrollments,
 } = require("../services/facilityService");
 const { safeUnlink } = require("../utils/file");
+const QRCodeModel = require("../models/QRCode.model");
 
 // @desc    Admin: create facility
 // @route   POST /api/admin/facilities
@@ -221,11 +222,14 @@ exports.deleteFacility = async (req, res) => {
     await detachDevicesAndEnrollments(facility._id);
 
     // Remove QR images + records tied to this facility
-    const facilityQRCodes = await QRCode.find({ facilityId: facility._id });
+    const facilityQRCodes = await QRCodeModel.find({
+      facilityId: facility._id,
+    });
+
     for (const qr of facilityQRCodes) {
       await safeUnlink(qr.imagePath);
     }
-    await QRCode.deleteMany({ facilityId: facility._id });
+    await QRCodeModel.deleteMany({ facilityId: facility._id });
 
     await facility.deleteOne();
 
