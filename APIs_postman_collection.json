@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "CamShield APIs",
-    "description": "Lean Postman collection for the active cam shield App endpoints only (updated 2026-03-09).",
+    "name": "CamBlock APIs",
+    "description": "Lean Postman collection for the active CamBlock App endpoints only (updated 2026-03-09).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -109,13 +109,13 @@
       "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{admin_token}}", "type": "string" } ] },
       "item": [
         {
-          "name": "Facility",
+          "name": "Create Facility",
           "request": {
             "method": "POST",
             "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"HQ One\",\n  \"description\": \"Headquarters lobby kiosks\",\n  \"location\": {\n    \"address\": \"1 Main St\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"country\": \"USA\"\n  },\n  \"notificationEmails\": [\"camshield@example.com\"],\n  \"timezone\": \"America/Chicago\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"name\": \"HQ One\",\n  \"description\": \"Headquarters lobby kiosks\",\n  \"location\": {\n    \"address\": \"1 Main St\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"country\": \"USA\"\n  },\n  \"notificationEmails\": [\"CamBlock@example.com\"],\n  \"timezone\": \"America/Chicago\",\n  \"status\": \"active\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{api_base}}/admin/facilities", "host": ["{{base_url}}"], "path": ["api", "admin", "facilities"] }
@@ -152,7 +152,7 @@
             "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated HQ\",\n  \"description\": \"Updated description\",\n  \"location\": {\n    \"address\": \"2 Main St\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"country\": \"USA\"\n  },\n  \"notificationEmails\": [\"camshield@example.com\", \"ops@example.com\"],\n  \"timezone\": \"America/Chicago\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"name\": \"Updated HQ\",\n  \"description\": \"Updated description\",\n  \"location\": {\n    \"address\": \"2 Main St\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"country\": \"USA\"\n  },\n  \"notificationEmails\": [\"CamBlock@example.com\", \"ops@example.com\"],\n  \"timezone\": \"America/Chicago\",\n  \"status\": \"active\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{api_base}}/admin/facilities/{{facility_id}}", "host": ["{{base_url}}"], "path": ["api", "admin", "facilities", "{{facility_id}}"] }

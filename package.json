@@ -1,7 +1,7 @@
 {
-  "name": "cam-shield-backend",
+  "name": "cam-block-backend",
   "version": "1.1.0",
-  "description": "Backend server for cam shield app system",
+  "description": "Backend server for CamBlock app system",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
@@ -15,7 +15,7 @@
   },
   "keywords": [
     "mdm",
-    "camShield-app",
+    "CamBlock-app",
     "qr-code",
     "device-management"
   ],

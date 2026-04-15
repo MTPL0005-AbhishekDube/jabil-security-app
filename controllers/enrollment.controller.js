@@ -8,7 +8,7 @@ const { generateNextVisitorId } = require("../utils/visitorId");
 
 // Normalize incoming token:
 // - Strip surrounding braces
-// - If a deep link like camshield-app://enroll?...&token=JWT, extract the token param
+// - If a deep link like CamBlock-app://enroll?...&token=JWT, extract the token param
 const normalizeToken = (rawToken) => {
   if (!rawToken) return null;
   let t = String(rawToken).trim();

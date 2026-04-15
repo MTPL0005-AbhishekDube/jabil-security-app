@@ -46,6 +46,6 @@ exports.buildDailyQREmail = ({ facilityName, date }) => {
 
     <p>Thank you for your cooperation.</p>
 
-    <p>Regards,<br/>CamShield Automation Team</p>
+    <p>Regards,<br/>CamBlock Automation Team</p>
   `;
 };

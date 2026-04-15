@@ -1,4 +1,4 @@
-# Cam Shield App Backend
+# CamBlock App Backend
 
 Node.js + Express backend for QR-based visitor device control. It locks a visitor's camera on entry, unlocks on exit, rotates daily QR codes, and gives admins simple facility/device controls.
 
@@ -25,7 +25,7 @@ npm install
 2) Configure environment (`.env`)
 ```
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/camshield-app-system
+MONGODB_URI=mongodb://localhost:27017/CamBlock-app-system
 JWT_SECRET=change-me
 QR_VALIDITY_DAYS=90
 ADMIN_TOKEN_EXPIRE=15d
@@ -36,7 +36,7 @@ SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=user@example.com
 SMTP_PASS=example-password
-EMAIL_FROM=camshield App <no-reply@example.com>
+EMAIL_FROM=CamBlock App <no-reply@example.com>
 DAILY_QR_CRON=0 0 * * *
 DAILY_QR_TZ=UTC
 RENDER_EXTERNAL_URL=
@@ -93,7 +93,7 @@ Base URL: `http://localhost:5000/api`
 - Double entry in the same facility is idempotent (locks camera again); entry in a different facility while active returns 409 until the device exits.
 
 ## Postman
-Import `camshield_App_API.postman_collection.json` (kept up to date with all routes above). Set `base_url` and `admin_token` in the collection variables.
+Import `CamBlock_App_API.postman_collection.json` (kept up to date with all routes above). Set `base_url` and `admin_token` in the collection variables.
 
 ## Scripts
 - `npm run generate-qr -- <id|all>` — create entry/exit QRs
