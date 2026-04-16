@@ -1,0 +1,1 @@
+[2026-04-16T09:00:35.007Z] WARN: JWT verification failed, trying fallback lookup {"requestId":"a77fb0b9-a886-4d4f-b411-6a3df020dbd0","error":"Invalid or expired token","tokenLength":8}

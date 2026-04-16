@@ -1,0 +1,12 @@
+[2026-04-16T08:28:15.751Z] DEBUG: Token normalized {"requestId":"a4c0d053-125d-4560-b7dd-748c9a180ad5","originalTokenLength":396,"normalizedTokenLength":396}[2026-04-16T09:37:53.544Z] DEBUG: Token normalized {"requestId":"0f57a622-b794-4346-ad71-2a60bb6bde49","originalTokenLength":396,"normalizedTokenLength":396}
+[2026-04-16T09:37:53.547Z] DEBUG: JWT token verified successfully {"requestId":"0f57a622-b794-4346-ad71-2a60bb6bde49","qrCodeId":"hq_one_Entry_Code_2026-04-16"}
+[2026-04-16T09:37:53.558Z] DEBUG: Device lookup result {"requestId":"0f57a622-b794-4346-ad71-2a60bb6bde49","deviceId":"195362bf5d30f3d3","deviceExists":true,"currentStatus":"inactive","currentFacility":null}
+[2026-04-16T09:37:53.565Z] DEBUG: Checking existing enrollment {"requestId":"0f57a622-b794-4346-ad71-2a60bb6bde49","deviceId":"195362bf5d30f3d3","hasExistingEnrollment":false}
+[2026-04-16T09:37:53.568Z] DEBUG: Looking for existing enrollment record {"requestId":"0f57a622-b794-4346-ad71-2a60bb6bde49","deviceId":"195362bf5d30f3d3","existingRecordFound":true,"previousStatus":"expired"}
+[2026-04-16T09:37:57.487Z] DEBUG: Skipping cleanup - too few log files {"totalFiles":4}
+[2026-04-16T09:38:04.965Z] DEBUG: Token normalized {"requestId":"b3f5b2e4-fe0a-4372-978e-c098cd36aade","originalTokenLength":396,"normalizedTokenLength":396}
+[2026-04-16T09:38:04.967Z] DEBUG: JWT token verified successfully {"requestId":"b3f5b2e4-fe0a-4372-978e-c098cd36aade","qrCodeId":"hq_one_Entry_Code_2026-04-16"}
+[2026-04-16T09:38:04.971Z] DEBUG: Device lookup result {"requestId":"b3f5b2e4-fe0a-4372-978e-c098cd36aade","deviceId":"195362bf5d30f3d3","deviceExists":true,"currentStatus":"inactive","currentFacility":null}
+[2026-04-16T09:38:04.974Z] DEBUG: Checking existing enrollment {"requestId":"b3f5b2e4-fe0a-4372-978e-c098cd36aade","deviceId":"195362bf5d30f3d3","hasExistingEnrollment":false}
+[2026-04-16T09:38:04.976Z] DEBUG: Looking for existing enrollment record {"requestId":"b3f5b2e4-fe0a-4372-978e-c098cd36aade","deviceId":"195362bf5d30f3d3","existingRecordFound":true,"previousStatus":"expired"}
+[2026-04-16T09:38:14.917Z] DEBUG: Skipping cleanup - too few log files {"totalFiles":4}
