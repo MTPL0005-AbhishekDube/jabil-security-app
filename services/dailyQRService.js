@@ -7,6 +7,7 @@ const qrGenerator = require("../utils/qrGenerator");
 const { sendEmail, buildDailyQREmail } = require("../utils/emailService");
 const mdmService = require("../utils/mdmService");
 const { safeUnlink } = require("../utils/file");
+const logger = require("../utils/logger");
 
 // basic slugify for filenames/ids
 const slugify = (str) =>
@@ -52,20 +53,14 @@ function getDateContext(facility, referenceDate = new Date()) {
   // YYYY-MM-DD for the facility timezone
   const dateStr = referenceDate.toLocaleDateString("en-CA", { timeZone });
 
-  // Offset minutes between facility TZ and UTC at this reference time
-  const tzOffsetMinutes =
-    (new Date(referenceDate.toLocaleString("en-US", { timeZone })).getTime() -
-      referenceDate.getTime()) /
-    60000;
-  const offsetMs = tzOffsetMinutes * 60 * 1000;
-
-  // Start and end of that day in UTC, respecting the facility timezone
+  // Get exact midnight boundaries in the facility's timezone
   const [year, month, day] = dateStr.split("-").map(Number);
-  const validFrom = new Date(
-    Date.UTC(year, month - 1, day, 0, 0, 0, 0) - offsetMs
-  );
-  // validUntil extends from start-of-day for configured number of days
-  const validUntil = new Date(validFrom.getTime() + QR_VALIDITY_MS - 1);
+
+  // Start of day: 00:00:00 in facility timezone
+  const validFrom = new Date(year, month - 1, day, 0, 0, 0, 0);
+
+  // End of day: 23:59:59.999 in facility timezone (exactly 24 hours later)
+  const validUntil = new Date(year, month - 1, day, 23, 59, 59, 999);
 
   return { timeZone, dateStr, validFrom, validUntil };
 }
@@ -80,24 +75,16 @@ async function generateDailyQRsForFacility(
     referenceDate
   );
 
-  // Expire and remove QR codes whose validity window has passed
-  const now = new Date(referenceDate);
-  const expiredQrs = await QRCode.find({
-    facilityId: facility._id,
-    validUntil: { $lt: now },
+  // Step 1: Delete ALL existing QR codes for this facility (regardless of validity)
+  // This ensures we have a clean slate for the new day
+  logger.info(`Deleting existing QR codes for ${facility.name} for date ${dateStr}`);
+  const deletedCount = await QRCode.deleteMany({
+    facilityId: facility._id
   });
 
-  for (const qr of expiredQrs) {
-    qr.status = "expired";
-    await qr.save();
-
-    if (qr.imagePath) await safeUnlink(qr.imagePath);
+  if (deletedCount > 0) {
+    logger.info(`Deleted ${deletedCount} existing QR codes for ${facility.name}`);
   }
-
-  await QRCode.deleteMany({
-    facilityId: facility._id,
-    validUntil: { $lt: now },
-  });
 
   const slug = slugify(facility.name);
 
@@ -219,24 +206,72 @@ async function expireActiveEnrollmentsForFacility(facilityId, cutoff) {
   }
 }
 
-// Run daily job at 00:05 server time (can be aligned per facility TZ later)
+// Run daily job at midnight every day for all facilities
 function scheduleDailyJob() {
-  const cronExp = process.env.DAILY_QR_CRON || "0 0 * * *"; // default midnight daily
-  const timezone = DEFAULT_TZ;
+  const cronExp = process.env.DAILY_QR_CRON || "0 0 * * *"; // exactly at midnight
+  const timezone = process.env.DAILY_QR_TZ || "Asia/Kolkata";
+
+  logger.info(`Scheduling daily QR generation job: ${cronExp} (${timezone})`);
 
   cron.schedule(
     cronExp,
     async () => {
-      const now = new Date();
-      const facilities = await Facility.find({ status: "active" });
+      const startTime = new Date();
+      logger.info(`Starting daily QR generation job at ${startTime.toISOString()}`);
 
-      for (const facility of facilities) {
-        await expireActiveEnrollmentsForFacility(facility._id, now);
-        await ensureActiveQRCodes(facility, now);
+      try {
+        const now = new Date();
+        const facilities = await Facility.find({ status: "active" });
+
+        logger.info(`Found ${facilities.length} active facilities to process`);
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const facility of facilities) {
+          try {
+            logger.info(`Processing facility: ${facility.name}`);
+
+            // Step 1: Expire old enrollments and unlock devices from previous day
+            await expireActiveEnrollmentsForFacility(facility._id, now);
+            logger.info(`Expired old enrollments for ${facility.name}`);
+
+            // Step 2: Generate new QR codes for today (this will delete old ones)
+            const result = await generateDailyQRsForFacility(facility, now);
+            if (result) {
+              logger.info(`Generated new QR codes for ${facility.name}`);
+              logger.info(`QR codes valid from ${result.entry.validFrom.toISOString()} to ${result.entry.validUntil.toISOString()}`);
+            } else {
+              logger.warn(`No QR codes generated for ${facility.name}`);
+            }
+
+            successCount++;
+          } catch (facilityError) {
+            logger.error(`Failed to process facility ${facility.name}: ${facilityError.message}`);
+            errorCount++;
+          }
+        }
+
+        const endTime = new Date();
+        const duration = endTime - startTime;
+
+        logger.info(`Daily QR generation job completed in ${duration}ms`);
+        logger.info(`Success: ${successCount} facilities`);
+        if (errorCount > 0) {
+          logger.warn(`Errors: ${errorCount} facilities`);
+        }
+
+      } catch (error) {
+        logger.error(`Daily QR generation job failed: ${error.message}`, { stack: error.stack });
       }
     },
-    { timezone }
+    {
+      timezone,
+      scheduled: true
+    }
   );
+
+  logger.info(`Daily QR generation job scheduled successfully`);
 }
 
 // Generate QR codes only when there isn't an active entry + exit pair for the facility
@@ -272,6 +307,7 @@ module.exports = {
   scheduleDailyJob,
   runDailyJobOnce,
   generateDailyQRsForFacility,
+  getDateContext,
   expireActiveEnrollmentsForFacility,
   ensureActiveQRCodes,
 };

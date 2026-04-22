@@ -88,11 +88,14 @@ mongoose
       console.log(`Server running on port ${PORT}`);
 
       // Start daily QR rotation + emailer
+      logger.info("Initializing daily QR generation system...");
       scheduleDailyJob();
+
       // Ensure today's QR codes exist immediately on boot
-      runDailyJobOnce().catch((err) =>
-        console.error("Startup daily job failed:", err)
-      );
+      logger.info("Running initial daily job on startup...");
+      runDailyJobOnce().catch((err) => {
+        logger.error("Startup daily job failed: " + err.message, { stack: err.stack });
+      });
 
       // Schedule log cleanup (runs daily at 2 AM)
       logger.scheduleLogCleanup();
