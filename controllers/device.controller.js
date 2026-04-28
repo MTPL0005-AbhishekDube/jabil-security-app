@@ -115,6 +115,13 @@ exports.listActiveDevicesV2 = async (req, res) => {
       {
         $addFields: {
           enrolledAt: "$lastEnrollmentDoc.enrolledAt",
+          unenrolledAt: {
+            $cond: [
+              { $eq: ["$status", "inactive"] },
+              "$lastEnrollmentDoc.unenrolledAt",
+              "$$REMOVE",
+            ],
+          },
         },
       },
     ];
