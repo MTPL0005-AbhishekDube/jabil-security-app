@@ -114,6 +114,7 @@ exports.listActiveDevicesV2 = async (req, res) => {
       },
       {
         $addFields: {
+          enrollmentId: "$lastEnrollmentDoc.enrollmentId",
           enrolledAt: "$lastEnrollmentDoc.enrolledAt",
           unenrolledAt: {
             $cond: [
@@ -266,6 +267,84 @@ exports.getActiveDeviceById = async (req, res) => {
             }
           : null,
         enrolledAt: enrollment.enrolledAt,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+
+exports.getEnrollmentDetails = async (req, res) => {
+  try {
+    const { deviceId, enrollmentId } = req.query;
+
+    if (!deviceId || !enrollmentId) {
+      return res.status(400).json({
+        status: "error",
+        message: "deviceId and enrollmentId are required",
+      });
+    }
+
+    const [device, enrollment] = await Promise.all([
+      Device.findOne({ deviceId }).select("deviceId deviceInfo status"),
+      Enrollment.findOne({ enrollmentId })
+        .select(
+          "enrollmentId deviceId facilityId entryQRCode exitQRCode enrolledAt unenrolledAt"
+        )
+        .populate("facilityId")
+        .populate("entryQRCode")
+        .populate("exitQRCode"),
+    ]);
+
+    if (!device) {
+      return res.status(404).json({
+        status: "error",
+        message: "Device not found",
+      });
+    }
+
+    if (
+      !enrollment ||
+      enrollment.deviceId?.toString() !== device._id?.toString()
+    ) {
+      return res.status(404).json({
+        status: "error",
+        message: "No active enrollment for this device",
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        enrollmentId: enrollment.enrollmentId,
+        device: {
+          deviceId: device.deviceId,
+          deviceName: device.deviceInfo?.deviceName,
+          platform: device.deviceInfo?.platform,
+          model: device.deviceInfo?.model,
+          status: device.status,
+        },
+        facility: enrollment.facilityId
+          ? {
+              id: enrollment.facilityId._id,
+              name: enrollment.facilityId.name,
+            }
+          : null,
+        entryQRCode: enrollment.entryQRCode
+          ? {
+              id: enrollment.entryQRCode._id,
+              name: enrollment.entryQRCode.qrCodeId,
+            }
+          : null,
+        enrolledAt: enrollment.enrolledAt,
+        ...(enrollment.unenrolledAt
+          ? { unenrolledAt: enrollment.unenrolledAt }
+          : {}),
       },
     });
   } catch (error) {

@@ -12,6 +12,7 @@ const {
   listActiveDevices,
   listActiveDevicesV2,
   getActiveDeviceById,
+  getEnrollmentDetails
 } = require("../controllers/device.controller");
 const {
   getAllAdminsList,
@@ -43,5 +44,7 @@ router.get("/v2/devices/active", listActiveDevicesV2);
 // @desc    Get active enrollment by device ID
 // @route   GET /api/admin/devices/:deviceId/active-enrollment
 router.get("/devices/:deviceId/active-enrollment", getActiveDeviceById);
+
+router.get("/devices/enrollment", getEnrollmentDetails);
 
 module.exports = router;
