@@ -10,6 +10,7 @@ const {
 } = require("../controllers/facility.controller");
 const {
   listActiveDevices,
+  listActiveDevicesV2,
   getActiveDeviceById,
 } = require("../controllers/device.controller");
 const {
@@ -36,6 +37,8 @@ router.delete("/facilities/:id", deleteFacility);
 // @desc list of all active devices
 // @route   GET /api/admin/devices/active
 router.get("/devices/active", listActiveDevices);
+
+router.get("/v2/devices/active", listActiveDevicesV2);
 
 // @desc    Get active enrollment by device ID
 // @route   GET /api/admin/devices/:deviceId/active-enrollment
