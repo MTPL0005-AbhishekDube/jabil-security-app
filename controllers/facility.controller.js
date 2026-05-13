@@ -80,7 +80,7 @@ exports.getAllFacilities = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, q } = req.query;
 
-    const filter = {};
+    const filter = { createdBy: req.admin?._id };
     if (status) filter.status = status;
     if (q) {
       filter.$or = [
@@ -124,7 +124,7 @@ exports.getAllFacilities = async (req, res) => {
 exports.getFacilityById = async (req, res) => {
   try {
     const { id } = req.params;
-    const facility = await findFacilityById(id);
+    const facility = await findFacilityById(id, req.admin?._id);
 
     if (!facility) {
       return res
@@ -151,7 +151,7 @@ exports.getFacilityById = async (req, res) => {
 exports.updateFacility = async (req, res) => {
   try {
     const { id } = req.params;
-    const facility = await findFacilityById(id);
+    const facility = await findFacilityById(id, req.admin?._id);
 
     if (!facility) {
       return res
@@ -210,7 +210,7 @@ exports.updateFacility = async (req, res) => {
 exports.deleteFacility = async (req, res) => {
   try {
     const { id } = req.params;
-    const facility = await findFacilityById(id);
+    const facility = await findFacilityById(id, req.admin?._id);
 
     if (!facility) {
       return res
@@ -218,24 +218,24 @@ exports.deleteFacility = async (req, res) => {
         .json({ status: "error", message: "Facility not found" });
     }
 
-    // Unlock/detach devices and delete enrollments
-    await detachDevicesAndEnrollments(facility._id);
-
-    // Remove QR images + records tied to this facility
-    const facilityQRCodes = await QRCodeModel.find({
-      facilityId: facility._id,
-    });
-
-    for (const qr of facilityQRCodes) {
-      await safeUnlink(qr.imagePath);
+    // 1. Clean up QR codes from DB and storage
+    const qrs = await QRCodeModel.find({ facilityId: facility._id });
+    for (const qr of qrs) {
+      if (qr.imagePath) {
+        await safeUnlink(qr.imagePath);
+      }
     }
     await QRCodeModel.deleteMany({ facilityId: facility._id });
 
-    await facility.deleteOne();
+    // 2. Unlock devices and clean up enrollments
+    await detachDevicesAndEnrollments(facility._id);
+
+    // 3. Remove facility
+    await Facility.deleteOne({ _id: facility._id });
 
     return res.status(200).json({
       status: "success",
-      message: "Facility deleted",
+      message: "Facility and associated data removed",
     });
   } catch (error) {
     return res.status(500).json({

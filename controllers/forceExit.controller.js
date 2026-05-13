@@ -1,6 +1,7 @@
 const ForceExitRequest = require("../models/ForceExitRequest.model");
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
+const Facility = require("../models/Facility.model");
 const { v4: uuidv4 } = require("uuid");
 const { generateRestoreToken } = require("../utils/jwt");
 const firebaseService = require("../utils/firebaseService");
@@ -388,13 +389,44 @@ exports.getPendingRequestsList = async (req, res) => {
   logger.info("Get pending requests request", {
     requestId,
     facilityId,
-    adminId: req.admin?.id,
+    adminId: req.admin?._id,
   });
 
   try {
-    const pendingRequests = await ForceExitRequest.getPendingRequestsList(
-      facilityId
-    );
+    // Find facilities created by this admin
+    const adminFacilities = await Facility.find({
+      createdBy: req.admin?._id,
+    }).select("_id");
+    const facilityIds = adminFacilities.map((f) => f._id);
+
+    let queryFacilityId = facilityId;
+
+    // If facilityId is provided in query, verify it belongs to the admin
+    if (facilityId) {
+      const facility = await Facility.findOne({
+        _id: facilityId,
+        createdBy: req.admin?._id,
+      });
+      if (!facility) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have permission to access requests for this facility",
+        });
+      }
+      queryFacilityId = facility._id;
+    } else {
+      // If no facilityId provided, default to all facilities owned by admin
+      queryFacilityId = { $in: facilityIds };
+    }
+
+    const pendingRequests = await ForceExitRequest.find({
+      status: "pending",
+      facilityId: queryFacilityId,
+    })
+      .populate("deviceId", "deviceId deviceInfo visitorId pushToken")
+      .populate("facilityId", "name location")
+      .sort({ requestedAt: -1 });
 
     logger.info("Pending requests retrieved", {
       requestId,
@@ -431,7 +463,7 @@ exports.approveRequest = async (req, res) => {
   const requestId = req.requestId || uuidv4();
   const { requestId: forceExitRequestId } = req.params;
   const { adminNotes } = req.body;
-  const adminId = req.admin?.id;
+  const adminId = req.admin?._id;
 
   logger.info("Approve force exit request", {
     requestId,
@@ -473,6 +505,27 @@ exports.approveRequest = async (req, res) => {
       });
 
       return res.status(404).json({
+        status: "error",
+        message: error,
+      });
+    }
+
+    // Check if the facility belongs to the admin
+    const facility = await Facility.findOne({
+      _id: forceExitRequest.facilityId,
+      createdBy: req.admin?._id,
+    });
+    if (!facility) {
+      const error =
+        "You do not have permission to approve requests for this facility";
+      logger.warn(error, {
+        requestId,
+        forceExitRequestId,
+        facilityId: forceExitRequest.facilityId,
+        adminId: req.admin?._id,
+      });
+
+      return res.status(403).json({
         status: "error",
         message: error,
       });
@@ -580,7 +633,7 @@ exports.denyRequest = async (req, res) => {
   const requestId = req.requestId || uuidv4();
   const { requestId: forceExitRequestId } = req.params;
   const { adminNotes } = req.body;
-  const adminId = req.admin?.id;
+  const adminId = req.admin?._id;
 
   logger.info("Deny force exit request", {
     requestId,
@@ -622,6 +675,27 @@ exports.denyRequest = async (req, res) => {
       });
 
       return res.status(404).json({
+        status: "error",
+        message: error,
+      });
+    }
+
+    // Check if the facility belongs to the admin
+    const facility = await Facility.findOne({
+      _id: forceExitRequest.facilityId,
+      createdBy: req.admin?._id,
+    });
+    if (!facility) {
+      const error =
+        "You do not have permission to deny requests for this facility";
+      logger.warn(error, {
+        requestId,
+        forceExitRequestId,
+        facilityId: forceExitRequest.facilityId,
+        adminId: req.admin?._id,
+      });
+
+      return res.status(403).json({
         status: "error",
         message: error,
       });

@@ -1,12 +1,9 @@
-const axios = require("axios");
 const logger = require("./logger");
 
 class MDMService {
   // Android: Enroll device with Work Profile
   async enrollAndroidDevice(deviceId, deviceInfo) {
     try {
-      // This is a placeholder for actual MDM API integration
-      // Replace with your actual MDM provider's API calls
 
       console.log(`Enrolling Android device: ${deviceId} ${deviceInfo}`);
 
@@ -77,7 +74,7 @@ class MDMService {
   // Lock camera on device
   async lockCamera(deviceId, platform) {
     const operationId = `lock_${deviceId}_${Date.now()}`;
-    
+
     try {
       logger.info(`[MDM] Locking camera for device: ${deviceId} (${platform})`, {
         operationId,
@@ -112,7 +109,7 @@ class MDMService {
         deviceId,
         platform
       });
-      
+
       throw new Error(error);
     } catch (error) {
       logger.error(`[MDM] Camera lock operation failed`, {
@@ -122,7 +119,7 @@ class MDMService {
         error: error.message,
         stack: error.stack
       });
-      
+
       return {
         success: false,
         error: error.message,
@@ -133,7 +130,7 @@ class MDMService {
   // Unlock camera on device
   async unlockCamera(deviceId, platform) {
     const operationId = `unlock_${deviceId}_${Date.now()}`;
-    
+
     try {
       logger.info(`[MDM] Unlocking camera for device: ${deviceId} (${platform})`, {
         operationId,
@@ -168,7 +165,7 @@ class MDMService {
         deviceId,
         platform
       });
-      
+
       throw new Error(error);
     } catch (error) {
       logger.error(`[MDM] Camera unlock operation failed`, {
@@ -178,7 +175,7 @@ class MDMService {
         error: error.message,
         stack: error.stack
       });
-      
+
       return {
         success: false,
         error: error.message,
@@ -254,7 +251,6 @@ class MDMService {
   // Generate iOS MDM profile
   generateiOSProfile(deviceId) {
     // This generates a basic .mobileconfig profile structure
-    // In production, you'd use a proper MDM solution
 
     return {
       PayloadContent: [
@@ -278,7 +274,7 @@ class MDMService {
   // Check device enrollment status
   async checkEnrollmentStatus(deviceId) {
     try {
-      // In production, query actual MDM provider
+
       return {
         enrolled: true,
         deviceId,
@@ -288,72 +284,6 @@ class MDMService {
       return {
         enrolled: false,
         error: error.message,
-      };
-    }
-  }
-
-  // Send push notification to device
-  async sendPushNotification(pushToken, payload) {
-    const operationId = `push_${Date.now()}`;
-    
-    try {
-      if (!pushToken) {
-        logger.warn(`[MDM] Push notification failed - missing pushToken`, {
-          operationId,
-          hasPushToken: false
-        });
-        return { success: false, error: "missing pushToken" };
-      }
-
-      const body = {
-        to: pushToken,
-        notification: {
-          title: payload?.title || "CamBlock App",
-          body: payload?.message || "Action required",
-        },
-        data: payload || {},
-        priority: "high",
-      };
-      
-      logger.info(`[MDM] Sending push notification`, {
-        operationId,
-        pushToken: pushToken.substring(0, 20) + '...',
-        title: body.notification.title,
-        body: body.notification.body,
-        hasData: !!Object.keys(body.data).length
-      });
-
-      const response = await axios.post("https://fcm.googleapis.com/fcm/send", body, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      
-      logger.info(`[MDM] Push notification sent successfully`, {
-        operationId,
-        status: response.status,
-        fcmMessageId: response.data?.message_id,
-        fcmFailure: response.data?.failure
-      });
-
-      return {
-        success: true,
-        sentAt: new Date().toISOString(),
-        fcmResponse: response.data
-      };
-    } catch (error) {
-      logger.error(`[MDM] Push notification failed`, {
-        operationId,
-        pushToken: pushToken ? pushToken.substring(0, 20) + '...' : 'none',
-        error: error.message,
-        responseStatus: error.response?.status,
-        responseData: error.response?.data
-      });
-      
-      return {
-        success: false,
-        error: error.message,
-        fcmError: error.response?.data
       };
     }
   }

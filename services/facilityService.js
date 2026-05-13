@@ -6,11 +6,19 @@ const Enrollment = require("../models/Enrollment.model");
 const mdmService = require("../utils/mdmService");
 
 // Find facility by either public facilityId or Mongo _id
-const findFacilityById = async (id) => {
-  return (
-    (await Facility.findOne({ facilityId: id })) ||
-    (mongoose.Types.ObjectId.isValid(id) ? await Facility.findById(id) : null)
-  );
+const findFacilityById = async (id, adminId = null) => {
+  const query = {
+    $or: [
+      { facilityId: id },
+      ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []),
+    ],
+  };
+
+  if (adminId) {
+    query.createdBy = adminId;
+  }
+
+  return await Facility.findOne(query);
 };
 
 // Build a public-facing URL for stored QR images
