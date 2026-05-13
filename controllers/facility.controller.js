@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const Facility = require("../models/Facility.model");
+const Device = require("../models/Device.model");
 const { generateDailyQRsForFacility } = require("../services/dailyQRService");
 const {
   findFacilityById,
@@ -167,6 +168,22 @@ exports.updateFacility = async (req, res) => {
       "timezone",
       "status",
     ];
+
+    // Check if trying to set to inactive while devices are active
+    if (req.body.status && req.body.status !== "active") {
+      const activeDevicesCount = await Device.countDocuments({
+        currentFacility: facility._id,
+        status: "active",
+      });
+
+      if (activeDevicesCount > 0) {
+        return res.status(400).json({
+          status: "error",
+          message: `Facility cannot be set to ${req.body.status} because there are ${activeDevicesCount} device(s) currently active in this facility.`,
+        });
+      }
+    }
+
     allowed.forEach((field) => {
       if (field in req.body) {
         facility[field] = req.body[field];
@@ -216,6 +233,19 @@ exports.deleteFacility = async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Facility not found" });
+    }
+
+    // Check if any devices are active in this facility before deleting
+    const activeDevicesCount = await Device.countDocuments({
+      currentFacility: facility._id,
+      status: "active",
+    });
+
+    if (activeDevicesCount > 0) {
+      return res.status(400).json({
+        status: "error",
+        message: `Facility cannot be deleted because there are ${activeDevicesCount} device(s) currently active in this facility.`,
+      });
     }
 
     // 1. Clean up QR codes from DB and storage

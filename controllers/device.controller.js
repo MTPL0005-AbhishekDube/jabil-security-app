@@ -1,5 +1,6 @@
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
+const Facility = require("../models/Facility.model");
 
 // @desc    Admin: list active devices (search by deviceId/visitorId/model)
 // @route   GET /api/admin/v2/devices/active
@@ -10,10 +11,15 @@ exports.listActiveDevices = async (req, res) => {
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
     const skip = (pageNum - 1) * limitNum;
 
-    const filter = {};
+    // Find facilities created by this admin
+    const adminFacilities = await Facility.find({ createdBy: req.admin?._id }).select("_id");
+    const facilityIds = adminFacilities.map(f => f._id);
+
+    // Filter for basic search
+    const searchFilter = {};
     if (q) {
       const regex = new RegExp(q, "i");
-      filter.$or = [
+      searchFilter.$or = [
         { deviceId: regex },
         { visitorId: regex },
         { "deviceInfo.deviceName": regex },
@@ -49,7 +55,7 @@ exports.listActiveDevices = async (req, res) => {
     }
 
     const pipeline = [
-      { $match: filter },
+      { $match: searchFilter },
       {
         $lookup: {
           from: "enrollments",
@@ -63,6 +69,15 @@ exports.listActiveDevices = async (req, res) => {
           path: "$lastEnrollmentDoc",
           preserveNullAndEmptyArrays: true,
         },
+      },
+      // Filter by ownership: either current facility or last enrollment facility belongs to this admin
+      {
+        $match: {
+          $or: [
+            { currentFacility: { $in: facilityIds } },
+            { "lastEnrollmentDoc.facilityId": { $in: facilityIds } }
+          ]
+        }
       },
       {
         $addFields: {
@@ -197,6 +212,14 @@ exports.getEnrollmentDetails = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "No active enrollment for this device",
+      });
+    }
+
+    // Check if the facility belongs to the admin
+    if (enrollment.facilityId && enrollment.facilityId.createdBy?.toString() !== req.admin?._id?.toString()) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to view this enrollment details",
       });
     }
 

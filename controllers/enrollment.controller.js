@@ -155,6 +155,38 @@ exports.scanEntry = async (req, res) => {
       });
     }
 
+    // Check if facility is active
+    if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
+      const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        qrCodeId: qrCode.qrCodeId,
+        facilityId: qrCode.facilityId?._id,
+        facilityStatus: qrCode.facilityId?.status,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: error,
+      });
+    }
+
+    // Check if facility is active
+    if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
+      const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        qrCodeId: qrCode.qrCodeId,
+        facilityId: qrCode.facilityId?._id,
+        facilityStatus: qrCode.facilityId?.status,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: error,
+      });
+    }
+
     // Check if it's an entry QR
     if (qrCode.type !== "entry") {
       const error = "This QR code is not for entry";
@@ -563,6 +595,22 @@ exports.scanExit = async (req, res) => {
         isValid: qrCode?.isValid(),
         facilityId: qrCode?.facilityId?._id,
         expiresAt: qrCode?.expiresAt,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: error,
+      });
+    }
+
+    // Check if facility is active
+    if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
+      const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        qrCodeId: qrCode.qrCodeId,
+        facilityId: qrCode.facilityId?._id,
+        facilityStatus: qrCode.facilityId?.status,
       });
 
       return res.status(400).json({
