@@ -9,6 +9,10 @@ const {
   scheduleDailyJob,
   runDailyJobOnce,
 } = require("./services/dailyQRService");
+const {
+  scheduleAccessCodeJob,
+  runAccessCodeJobOnce,
+} = require("./services/facilityAccessCodeService");
 const logger = require("./utils/logger");
 
 // Import routes
@@ -92,10 +96,22 @@ mongoose
       logger.info("Initializing daily QR generation system...");
       scheduleDailyJob();
 
+      // Start short-lived facility access code rotation (6-digit entry/exit codes)
+      logger.info("Initializing facility access code rotation system...");
+      scheduleAccessCodeJob();
+
       // Ensure today's QR codes exist immediately on boot
       logger.info("Running initial daily job on startup...");
       runDailyJobOnce().catch((err) => {
         logger.error("Startup daily job failed: " + err.message, { stack: err.stack });
+      });
+
+      // Ensure first 6-digit codes are available immediately on boot
+      logger.info("Running initial access code job on startup...");
+      runAccessCodeJobOnce().catch((err) => {
+        logger.error("Startup access code job failed: " + err.message, {
+          stack: err.stack,
+        });
       });
 
       // Schedule log cleanup (runs daily at 2 AM)

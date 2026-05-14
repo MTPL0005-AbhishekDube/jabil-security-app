@@ -75,6 +75,12 @@ const attachActiveQRCodes = async (facilities, req) => {
   return facilities.map((facility) => {
     const obj = facility.toObject ? facility.toObject() : { ...facility };
     obj.activeQRCodes = grouped[facility._id.toString()] || [];
+    obj.accessCodes = {
+      entryCode: obj.entryCode || null,
+      entryCodeValidUntil: obj.entryCodeValidUntil || null,
+      exitCode: obj.exitCode || null,
+      exitCodeValidUntil: obj.exitCodeValidUntil || null,
+    };
     return obj;
   });
 };

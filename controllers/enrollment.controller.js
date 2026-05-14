@@ -5,6 +5,8 @@ const mdmService = require("../utils/mdmService");
 const { verifyToken } = require("../utils/jwt");
 const { v4: uuidv4 } = require("uuid");
 const { generateNextVisitorId } = require("../utils/visitorId");
+const { findFacilityById } = require("../services/facilityService");
+const { findValidAccessCode } = require("../services/facilityAccessCodeService");
 const logger = require("../utils/logger");
 
 // Normalize incoming token:
@@ -32,6 +34,129 @@ const normalizeToken = (rawToken) => {
     }
   }
   return t;
+};
+
+const normalizeSixDigitCode = (rawCode) => {
+  if (rawCode === null || rawCode === undefined) return null;
+
+  if (
+    typeof rawCode === "number" &&
+    Number.isInteger(rawCode) &&
+    rawCode >= 0 &&
+    rawCode <= 999999
+  ) {
+    return String(rawCode).padStart(6, "0");
+  }
+
+  const normalized = String(rawCode).trim();
+  if (!/^\d{6}$/.test(normalized)) return null;
+  return normalized;
+};
+
+// @desc    Scan exit using 6-digit exit code + facility
+// @route   POST /api/enrollments/scan-exit-code
+exports.scanExitByCode = async (req, res) => {
+  const requestId = req.requestId || uuidv4();
+  const { deviceId, facilityId, exitCode } = req.body;
+
+  logger.info("Scan exit by code request received", {
+    requestId,
+    deviceId,
+    facilityId,
+    hasExitCode: exitCode !== undefined && exitCode !== null,
+    userAgent: req.get("User-Agent"),
+    ip: req.ip,
+  });
+
+  try {
+    if (!deviceId || !facilityId || exitCode === undefined || exitCode === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "deviceId, facilityId, and exitCode are required",
+      });
+    }
+
+    const normalizedExitCode = normalizeSixDigitCode(exitCode);
+    if (!normalizedExitCode) {
+      return res.status(400).json({
+        status: "error",
+        message: "exitCode must be a valid 6-digit code",
+      });
+    }
+
+    const facility = await findFacilityById(facilityId);
+    if (!facility || facility.status !== "active") {
+      const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        facilityId,
+        facilityStatus: facility?.status,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: error,
+      });
+    }
+
+    const now = new Date();
+    const validExitCode = await findValidAccessCode({
+      facilityId: facility._id,
+      type: "exit",
+      code: normalizedExitCode,
+      referenceDate: now,
+    });
+
+    if (!validExitCode) {
+      logger.warn("Invalid or expired exit code", {
+        requestId,
+        deviceId,
+        facilityId: facility._id,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid or expired exit code",
+      });
+    }
+
+    const exitQrCode = await QRCode.findOne({
+      facilityId: facility._id,
+      type: "exit",
+      status: "active",
+      validFrom: { $lte: now },
+      validUntil: { $gte: now },
+    }).sort({ validUntil: -1 });
+
+    if (!exitQrCode || !exitQrCode.isValid()) {
+      logger.warn("No active exit QR available for facility", {
+        requestId,
+        facilityId: facility._id,
+      });
+
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid or expired QR code",
+      });
+    }
+
+    // Reuse existing scan-exit behavior so response and unlock logic remain identical.
+    req.body.token = exitQrCode.token;
+    return exports.scanExit(req, res);
+  } catch (error) {
+    logger.logQRError("exit_by_code", error, {
+      requestId,
+      deviceId,
+      facilityId,
+      stack: error.stack,
+    });
+
+    return res.status(500).json({
+      status: "error",
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
 };
 
 // @desc    Scan entry QR and enroll device (lock camera)

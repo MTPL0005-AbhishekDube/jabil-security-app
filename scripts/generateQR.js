@@ -4,6 +4,7 @@ const Facility = require("../models/Facility.model");
 const QRCode = require("../models/QRCode.model");
 const qrGenerator = require("../utils/qrGenerator");
 const { sendEmail, buildDailyQREmail } = require("../utils/emailService");
+const { refreshAccessCodesForFacility } = require("../services/facilityAccessCodeService");
 
 const slugify = (str) =>
   String(str || "facility")
@@ -79,6 +80,12 @@ const generateForFacility = async (facility) => {
   console.log("Exit QR Code generated");
   console.log(`ID: ${exitQRCode.qrCodeId}`);
   console.log(`Valid until: ${validUntil.toISOString()}\n`);
+
+  const accessCodes = await refreshAccessCodesForFacility(facility._id, new Date());
+  console.log("6-digit access codes generated");
+  console.log(`Entry code: ${accessCodes.entryCode}`);
+  console.log(`Exit code: ${accessCodes.exitCode}`);
+  console.log(`Code valid until: ${accessCodes.validUntil.toISOString()}\n`);
 
   // Send email with today's QR attachments if facility has notification emails
   if (facility.notificationEmails && facility.notificationEmails.length) {

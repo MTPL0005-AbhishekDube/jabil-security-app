@@ -41,6 +41,23 @@ const facilitySchema = new mongoose.Schema(
       enum: ["active", "inactive", "maintenance"],
       default: "active",
     },
+    entryCode: {
+      type: String,
+      match: /^\d{6}$/,
+    },
+    entryCodeValidUntil: {
+      type: Date,
+    },
+    exitCode: {
+      type: String,
+      match: /^\d{6}$/,
+    },
+    exitCodeValidUntil: {
+      type: Date,
+    },
+    lastCodeRotatedAt: {
+      type: Date,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",

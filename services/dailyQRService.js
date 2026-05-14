@@ -5,6 +5,7 @@ const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const qrGenerator = require("../utils/qrGenerator");
 const { sendEmail, buildDailyQREmail } = require("../utils/emailService");
+const { refreshAccessCodesForFacility } = require("./facilityAccessCodeService");
 const mdmService = require("../utils/mdmService");
 const { safeUnlink } = require("../utils/file");
 const logger = require("../utils/logger");
@@ -142,6 +143,12 @@ async function generateDailyQRsForFacility(
     generatedForDate: dateStr,
   });
 
+  // Keep short-lived numeric entry/exit codes refreshed together with QR generation.
+  const accessCodes = await refreshAccessCodesForFacility(
+    facility._id,
+    referenceDate
+  );
+
   // Build email
   if (facility.notificationEmails && facility.notificationEmails.length) {
     const html = buildDailyQREmail({
@@ -173,7 +180,7 @@ async function generateDailyQRsForFacility(
     }
   }
 
-  return { entry: entryDoc, exit: exitDoc };
+  return { entry: entryDoc, exit: exitDoc, accessCodes };
 }
 
 // Deactivate devices/enrollments when daily QR rotates
