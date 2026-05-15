@@ -434,6 +434,7 @@ exports.scanEntry = async (req, res) => {
           message: "Device is already enrolled. Camera locked.",
           data: {
             enrollmentId: existingEnrollment.enrollmentId,
+            facilityId: qrCode.facilityId._id,
             facilityName: qrCode.facilityId.name,
             visitorId: device.visitorId,
             action: "LOCK_CAMERA",
@@ -584,6 +585,7 @@ exports.scanEntry = async (req, res) => {
       message: "Entry allowed",
       data: {
         enrollmentId: enrollment.enrollmentId,
+        facilityId: qrCode.facilityId._id,
         facilityName: qrCode.facilityId.name,
         visitorId: device.visitorId,
         action: "LOCK_CAMERA",
