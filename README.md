@@ -4,6 +4,7 @@ Node.js + Express backend for QR-based visitor device control. It locks a visito
 
 ## Features
 - Entry/Exit scans with MDM lock/unlock.
+- Rotating random 6-digit `entryCode` and `exitCode` per facility (new pair every 15s, each valid for 20s).
 - Single enrollment record per device (re-enroll updates the same doc).
 - Admin JWT auth plus admin listing/detail endpoints.
 - Facility CRUD with daily QR generation + email delivery.
@@ -38,6 +39,8 @@ SMTP_PASS=example-password
 EMAIL_FROM=CamBlock App <no-reply@example.com>
 DAILY_QR_CRON=0 0 * * *
 DAILY_QR_TZ=UTC
+ACCESS_CODE_ROTATION_SECONDS=15
+ACCESS_CODE_TTL_SECONDS=20
 RENDER_EXTERNAL_URL=
 ```
 
@@ -64,6 +67,7 @@ Base URL: `http://localhost:5000/api`
 - `POST /facilities/create-facility`
 - `POST /enrollments/scan-entry`
 - `POST /enrollments/scan-exit`
+- `POST /enrollments/scan-exit-code`
 - `POST /enrollments/restore-from-push`
 
 ### Admin Auth
@@ -90,6 +94,8 @@ Base URL: `http://localhost:5000/api`
 ### Enrollment Behavior
 - A device keeps **one enrollment document**. Re-enrolling updates the same record (facility, QR refs, timestamps) instead of inserting a new one.
 - Double entry in the same facility is idempotent (locks camera again); entry in a different facility while active returns 409 until the device exits.
+- `scan-exit-code` validates `facilityId + exitCode + deviceId` and then executes the same unlock flow/response as `scan-exit`.
+- Codes rotate every 15 seconds and expire after 20 seconds (5-second overlap to reduce edge timing failures).
 
 ## Postman
 Import `CamBlock_App_API.postman_collection.json` (kept up to date with all routes above). Set `base_url` and `admin_token` in the collection variables.

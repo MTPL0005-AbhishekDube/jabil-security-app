@@ -1,10 +1,12 @@
 # System Architecture
 
 ## Overview
-Express API backed by MongoDB. Key domains are Admins, Facilities, QR Codes, Devices, and Enrollments (one active record per device, reused on re-entry). Daily QR rotation runs on a cron to refresh tokens and email facility contacts.
+Express API backed by MongoDB. Key domains are Admins, Facilities, QR Codes, Devices, Enrollments (one active record per device, reused on re-entry), and short-lived Facility Access Codes. Daily QR rotation runs on a cron to refresh tokens and email facility contacts.
 
 ```
 Mobile App ──▶ /api/enrollments (entry/exit/restore)
+            │
+            ├──▶ /api/enrollments/scan-exit-code (facility + 6-digit exit code)
             │
             └──▶ /api/facilities/create-facility (public setup)
 
@@ -30,6 +32,12 @@ MongoDB ──▶ Admin, Facility, QRCode, Device, Enrollment collections
 3. Active enrollment is completed (`status=completed`, `unenrolledAt` set).
 4. Device status set to `inactive`; camera unlock requested.
 
+### Exit via 6-digit code (unlock camera)
+1. App posts `facilityId + exitCode + deviceId` to `/api/enrollments/scan-exit-code`.
+2. Exit code is validated against a short-lived facility-linked code record.
+3. Service resolves active exit QR for that facility and delegates to the same `scan-exit` unlock flow.
+4. Response and side effects match `scan-exit`.
+
 ### Force Exit (admin)
 1. Admin posts to `/api/admin/devices/:deviceId/force-exit` (or legacy `/api/enrollments/admin/force-exit`).
 2. Active enrollment is marked `forced_exit`; device unlocked; optional restore push token sent.
@@ -37,6 +45,7 @@ MongoDB ──▶ Admin, Facility, QRCode, Device, Enrollment collections
 ## Data Model Highlights
 - **Admin**: username/password (argon2); JWT used for admin routes.
 - **Facility**: `facilityId` (UUID), notification emails, timezone, status.
+- **Facility Access Code**: random 6-digit entry/exit codes per facility (rotated every 15s, valid 20s).
 - **QRCode**: entry/exit tokens with validity window and scan counters.
 - **Device**: device metadata, visitorId, push token, `currentFacility`.
 - **Enrollment**: one-per-device record; stores entry/exit QR refs, status, timestamps.

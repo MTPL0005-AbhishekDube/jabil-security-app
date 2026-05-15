@@ -49,6 +49,18 @@ const getCodeWindow = (referenceDate = new Date()) => {
   return { validFrom, validUntil };
 };
 
+async function cleanupExpiredAccessCodes(referenceDate = new Date()) {
+  const now = new Date(referenceDate);
+  const { deletedCount = 0 } = await FacilityAccessCode.deleteMany({
+    validUntil: { $lt: now },
+  });
+
+  return {
+    deletedCount,
+    cleanupBefore: now,
+  };
+}
+
 async function refreshAccessCodesForFacility(facilityId, referenceDate = new Date()) {
   const { entryCode, exitCode } = generateCodePair();
   const { validFrom, validUntil } = getCodeWindow(referenceDate);
@@ -101,13 +113,20 @@ async function rotateAccessCodesForAllFacilities(referenceDate = new Date()) {
   isRotationRunning = true;
 
   try {
-    const facilities = await Facility.find({ status: "active" })
-      .select("_id")
-      .lean();
+    const [cleanupResult, facilities] = await Promise.all([
+      cleanupExpiredAccessCodes(referenceDate),
+      Facility.find({ status: "active" }).select("_id").lean(),
+    ]);
 
     if (!facilities.length) {
-      logger.info("Access code rotation skipped: no active facilities found");
-      return { totalFacilities: 0 };
+      logger.info("Access code rotation skipped: no active facilities found", {
+        expiredCodesDeleted: cleanupResult.deletedCount,
+        cleanupBefore: cleanupResult.cleanupBefore.toISOString(),
+      });
+      return {
+        totalFacilities: 0,
+        expiredCodesDeleted: cleanupResult.deletedCount,
+      };
     }
 
     const { validFrom, validUntil } = getCodeWindow(referenceDate);
@@ -160,12 +179,15 @@ async function rotateAccessCodesForAllFacilities(referenceDate = new Date()) {
       validFrom: validFrom.toISOString(),
       validUntil: validUntil.toISOString(),
       ttlSeconds: ACCESS_CODE_TTL_SECONDS,
+      expiredCodesDeleted: cleanupResult.deletedCount,
+      cleanupBefore: cleanupResult.cleanupBefore.toISOString(),
     });
 
     return {
       totalFacilities: facilities.length,
       validFrom,
       validUntil,
+      expiredCodesDeleted: cleanupResult.deletedCount,
     };
   } catch (error) {
     logger.error(`Access code rotation failed: ${error.message}`, {

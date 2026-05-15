@@ -51,6 +51,11 @@
       "type": "string"
     },
     {
+      "key": "exit_code",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "restore_token",
       "value": "",
       "type": "string"
@@ -130,6 +135,38 @@
                 "api",
                 "enrollments",
                 "scan-exit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Scan Exit By 6-Digit Code (unlock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"facilityId\": \"{{facility_id}}\",\n  \"exitCode\": \"{{exit_code}}\",\n  \"deviceId\": \"{{device_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base}}/enrollments/scan-exit-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "enrollments",
+                "scan-exit-code"
               ]
             }
           }
