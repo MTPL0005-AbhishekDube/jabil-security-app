@@ -1,29 +1,20 @@
-const Device = require("../models/Device.model");
+const Enrollment = require("../models/Enrollment.model");
+const mongoose = require("mongoose");
 
-// Generate the next visitor id in the format visitor-1, visitor-2, ...
-// Supports legacy underscore ids by reading the numeric suffix from either visitor-1 or visitor_1.
-exports.generateNextVisitorId = async () => {
-  const latest = await Device.aggregate([
-    { $match: { visitorId: { $regex: /^visitor[-_]\d+$/i } } },
+// Generate the next visitor id for a specific facility in the format Visitor-1, Visitor-2, ...
+exports.generateNextVisitorId = async (facilityId) => {
+  const latest = await Enrollment.aggregate([
+    {
+      $match: {
+        facilityId: new mongoose.Types.ObjectId(facilityId),
+        visitorId: { $regex: /^Visitor-\d+$/i },
+      },
+    },
     {
       $addFields: {
         visitorNum: {
           $toInt: {
-            $arrayElemAt: [
-              {
-                $split: [
-                  "$visitorId",
-                  {
-                    $cond: [
-                      { $regexMatch: { input: "$visitorId", regex: /_/ } },
-                      "_",
-                      "-",
-                    ],
-                  },
-                ],
-              },
-              1,
-            ],
+            $arrayElemAt: [{ $split: ["$visitorId", "-"] }, 1],
           },
         },
       },

@@ -33,8 +33,7 @@
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
-    "qrcode": "^1.5.3",
-    "uuid": "^9.0.1"
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

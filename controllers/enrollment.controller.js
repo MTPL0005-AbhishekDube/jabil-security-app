@@ -1,9 +1,9 @@
+const mongoose = require("mongoose");
 const Enrollment = require("../models/Enrollment.model");
 const Device = require("../models/Device.model");
 const QRCode = require("../models/QRCode.model");
 const mdmService = require("../utils/mdmService");
 const { verifyToken } = require("../utils/jwt");
-const { v4: uuidv4 } = require("uuid");
 const { generateNextVisitorId } = require("../utils/visitorId");
 const { findFacilityById } = require("../services/facilityService");
 const { findValidAccessCode } = require("../services/facilityAccessCodeService");
@@ -56,7 +56,7 @@ const normalizeSixDigitCode = (rawCode) => {
 // @desc    Scan exit using 6-digit exit code + facility
 // @route   POST /api/enrollments/scan-exit-code
 exports.scanExitByCode = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { deviceId, facilityId, exitCode } = req.body;
 
   logger.info("Scan exit by code request received", {
@@ -87,11 +87,6 @@ exports.scanExitByCode = async (req, res) => {
     const facility = await findFacilityById(facilityId);
     if (!facility || facility.status !== "active") {
       const error = "Facility is currently inactive. Scan not allowed.";
-      logger.warn(error, {
-        requestId,
-        facilityId,
-        facilityStatus: facility?.status,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -108,11 +103,6 @@ exports.scanExitByCode = async (req, res) => {
     });
 
     if (!validExitCode) {
-      logger.warn("Invalid or expired exit code", {
-        requestId,
-        deviceId,
-        facilityId: facility._id,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -129,10 +119,6 @@ exports.scanExitByCode = async (req, res) => {
     }).sort({ validUntil: -1 });
 
     if (!exitQrCode || !exitQrCode.isValid()) {
-      logger.warn("No active exit QR available for facility", {
-        requestId,
-        facilityId: facility._id,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -162,7 +148,7 @@ exports.scanExitByCode = async (req, res) => {
 // @desc    Scan entry QR and enroll device (lock camera)
 // @route   POST /api/enrollments/scan-entry
 exports.scanEntry = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { token, deviceId, deviceInfo } = req.body;
   const pushToken = deviceInfo?.pushToken;
 
@@ -179,12 +165,6 @@ exports.scanEntry = async (req, res) => {
   try {
     // Normalize token in case mobile passes deep link URL
     const normalizedToken = normalizeToken(token);
-
-    logger.debug("Token normalized", {
-      requestId,
-      originalTokenLength: token?.length,
-      normalizedTokenLength: normalizedToken?.length,
-    });
 
     // Validate required fields
     if (!normalizedToken || !deviceId || !deviceInfo) {
@@ -217,17 +197,17 @@ exports.scanEntry = async (req, res) => {
       decoded = verifyToken(normalizedToken);
       logger.debug("JWT token verified successfully", {
         requestId,
-        qrCodeId: decoded.qrCodeId,
+        id: decoded.id,
       });
 
-      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId }).populate(
+      qrCode = await QRCode.findById(decoded.id).populate(
         "facilityId"
       );
 
       if (!qrCode) {
         logger.warn("QR Code not found after JWT verification", {
           requestId,
-          qrCodeId: decoded.qrCodeId,
+          id: decoded.id,
         });
       }
     } catch (error) {
@@ -243,10 +223,10 @@ exports.scanEntry = async (req, res) => {
       );
 
       if (qrCode) {
-        decoded = { qrCodeId: qrCode.qrCodeId };
+        decoded = { id: qrCode._id };
         logger.info("Fallback lookup successful", {
           requestId,
-          qrCodeId: qrCode.qrCodeId,
+          id: qrCode._id,
           facilityId: qrCode.facilityId?._id,
         });
       } else {
@@ -268,7 +248,7 @@ exports.scanEntry = async (req, res) => {
       const error = "Invalid or expired QR code";
       logger.warn(error, {
         requestId,
-        qrCodeId: qrCode?.qrCodeId,
+        id: qrCode?._id,
         isValid: qrCode?.isValid(),
         facilityId: qrCode?.facilityId?._id,
         expiresAt: qrCode?.expiresAt,
@@ -283,28 +263,6 @@ exports.scanEntry = async (req, res) => {
     // Check if facility is active
     if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
       const error = "Facility is currently inactive. Scan not allowed.";
-      logger.warn(error, {
-        requestId,
-        qrCodeId: qrCode.qrCodeId,
-        facilityId: qrCode.facilityId?._id,
-        facilityStatus: qrCode.facilityId?.status,
-      });
-
-      return res.status(400).json({
-        status: "error",
-        message: error,
-      });
-    }
-
-    // Check if facility is active
-    if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
-      const error = "Facility is currently inactive. Scan not allowed.";
-      logger.warn(error, {
-        requestId,
-        qrCodeId: qrCode.qrCodeId,
-        facilityId: qrCode.facilityId?._id,
-        facilityStatus: qrCode.facilityId?.status,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -315,12 +273,6 @@ exports.scanEntry = async (req, res) => {
     // Check if it's an entry QR
     if (qrCode.type !== "entry") {
       const error = "This QR code is not for entry";
-      logger.warn(error, {
-        requestId,
-        qrCodeId: qrCode.qrCodeId,
-        actualType: qrCode.type,
-        expectedType: "entry",
-      });
 
       return res.status(400).json({
         status: "error",
@@ -351,15 +303,8 @@ exports.scanEntry = async (req, res) => {
         deviceInfo,
         status: "inactive",
         pushToken,
-        visitorId: await generateNextVisitorId(),
       });
 
-      logger.info("New device created successfully", {
-        requestId,
-        deviceId,
-        visitorId: device.visitorId,
-        deviceId_db: device._id,
-      });
     } else {
       // Update device info
       const oldDeviceInfo = device.deviceInfo;
@@ -367,9 +312,6 @@ exports.scanEntry = async (req, res) => {
 
       device.deviceInfo = deviceInfo;
       if (pushToken) device.pushToken = pushToken;
-      if (!device.visitorId) {
-        device.visitorId = await generateNextVisitorId();
-      }
       await device.save();
 
       logger.info("Device updated", {
@@ -378,7 +320,6 @@ exports.scanEntry = async (req, res) => {
         deviceInfoChanged:
           JSON.stringify(oldDeviceInfo) !== JSON.stringify(deviceInfo),
         pushTokenChanged: oldPushToken !== pushToken,
-        visitorId: device.visitorId,
       });
     }
 
@@ -398,197 +339,102 @@ exports.scanEntry = async (req, res) => {
     if (existingEnrollment) {
       // EDGE CASE 1: Device is already enrolled in the SAME facility
       // Action: Return 200 OK (Idempotent success) but do not create new enrollment
-      if (
-        existingEnrollment.facilityId.toString() ===
-        qrCode.facilityId._id.toString()
-      ) {
-        logger.info(
-          "Device already enrolled in same facility - idempotent success",
-          {
-            requestId,
-            deviceId,
-            enrollmentId: existingEnrollment.enrollmentId,
-            facilityId: qrCode.facilityId._id,
-            facilityName: qrCode.facilityId.name,
-          }
-        );
-
-        // Re-send lock command just in case
-        const lockResult = await mdmService.lockCamera(
+      if (String(existingEnrollment.facilityId) === String(qrCode.facilityId._id)) {
+        logger.info("Device already enrolled in this facility", {
+          requestId,
           deviceId,
-          deviceInfo.platform
-        );
-        logger.logMDMOperation(
-          "lockCamera",
-          deviceId,
-          deviceInfo.platform,
-          lockResult,
-          {
-            requestId,
-            reason: "idempotent_retry",
-          }
-        );
+          facilityId: qrCode.facilityId._id,
+          enrollmentId: existingEnrollment._id,
+        });
 
         return res.status(200).json({
           status: "success",
-          message: "Device is already enrolled. Camera locked.",
+          message: "Device already enrolled in this facility",
           data: {
-            enrollmentId: existingEnrollment.enrollmentId,
-            facilityId: qrCode.facilityId._id,
-            facilityName: qrCode.facilityId.name,
-            visitorId: device.visitorId,
-            action: "LOCK_CAMERA",
+            enrollment: existingEnrollment,
+            visitorId: existingEnrollment.visitorId,
+            action: "lock",
           },
         });
       }
 
       // EDGE CASE 2: Device is enrolled in a DIFFERENT facility
-      // Action: Return 409 Conflict
-      const error =
-        "Device is already enrolled in another facility. Please scan exit there first.";
-      logger.warn(error, {
+      // Action: Forcibly complete previous enrollment before starting new one
+      logger.warn("Device enrolled in different facility. Force completing old enrollment.", {
         requestId,
         deviceId,
-        currentFacility: existingEnrollment.facilityId,
-        attemptedFacility: qrCode.facilityId._id,
-        currentEnrollmentId: existingEnrollment.enrollmentId,
+        oldFacility: existingEnrollment.facilityId,
+        newFacility: qrCode.facilityId._id,
       });
 
-      return res.status(409).json({
-        status: "error",
-        message: error,
-      });
+      existingEnrollment.status = "completed";
+      existingEnrollment.unenrolledAt = new Date();
+      await existingEnrollment.save();
     }
 
-    // Enroll device with MDM (Lock Camera)
-    logger.info("Attempting to lock camera via MDM", {
-      requestId,
-      deviceId,
-      platform: deviceInfo.platform,
+    // Assign or retrieve visitorId for this device in this facility
+    let visitorId;
+    const previousEnrollment = await Enrollment.findOne({
+      deviceId: device._id,
       facilityId: qrCode.facilityId._id,
-    });
+      visitorId: { $exists: true }
+    }).sort({ createdAt: -1 });
 
-    const lockResult = await mdmService.lockCamera(
-      deviceId,
-      deviceInfo.platform
-    );
+    if (previousEnrollment) {
+      visitorId = previousEnrollment.visitorId;
+    } else {
+      visitorId = await generateNextVisitorId(qrCode.facilityId._id);
+    }
 
-    logger.logMDMOperation(
-      "lockCamera",
-      deviceId,
-      deviceInfo.platform,
-      lockResult,
-      {
-        requestId,
-        facilityId: qrCode.facilityId._id,
-        facilityName: qrCode.facilityId.name,
-      }
-    );
-
-    if (!lockResult.success) {
-      logger.error("MDM camera lock failed", {
+    // Lock camera via MDM
+    try {
+      await mdmService.lockCamera(deviceId, deviceInfo.platform);
+      logger.info("MDM: Camera locked successfully", {
         requestId,
         deviceId,
         platform: deviceInfo.platform,
-        error: lockResult.error,
-        facilityId: qrCode.facilityId._id,
       });
-
-      return res.status(500).json({
-        status: "error",
-        message: "Failed to lock camera",
-        error: lockResult.error,
-      });
-    }
-
-    // Reuse existing enrollment record for this device (single entry per device)
-    let enrollment = await Enrollment.findOne({ deviceId: device._id }).sort({
-      createdAt: -1,
-    });
-
-    logger.debug("Looking for existing enrollment record", {
-      requestId,
-      deviceId,
-      existingRecordFound: !!enrollment,
-      previousStatus: enrollment?.status,
-    });
-
-    if (!enrollment) {
-      enrollment = new Enrollment({
-        enrollmentId: uuidv4(),
-        deviceId: device._id,
-      });
-
-      logger.info("Created new enrollment record", {
+    } catch (mdmError) {
+      logger.error("MDM: Failed to lock camera", {
         requestId,
         deviceId,
-        enrollmentId: enrollment.enrollmentId,
+        error: mdmError.message,
       });
+      // Continue even if MDM fails? Usually yes, but we should log it.
+      // Depending on requirements, you might want to return error here.
     }
 
-    enrollment.facilityId = qrCode.facilityId._id;
-    enrollment.entryQRCode = qrCode._id;
-    enrollment.exitQRCode = null;
-    enrollment.status = "active";
-    enrollment.enrolledAt = new Date();
-    enrollment.unenrolledAt = null;
-    enrollment.reason = undefined;
-    enrollment.initiatedBy = undefined;
-    await enrollment.save();
-
-    logger.logEnrollment(
-      "created/updated",
-      {
-        enrollmentId: enrollment.enrollmentId,
-        deviceId: device.deviceId,
-        facilityId: qrCode.facilityId._id,
-        status: enrollment.status,
-        enrolledAt: enrollment.enrolledAt,
-      },
-      { requestId }
-    );
+    // Create enrollment record
+    const enrollment = await Enrollment.create({
+      deviceId: device._id,
+      facilityId: qrCode.facilityId._id,
+      visitorId: visitorId,
+      entryQRCode: qrCode._id,
+      status: "active",
+    });
 
     // Update device status
     device.status = "active";
     device.currentFacility = qrCode.facilityId._id;
     device.lastEnrollment = enrollment._id;
+    device.lastActivity = new Date();
     await device.save();
 
-    logger.info("Device status updated to active", {
+    logger.info("Enrollment completed successfully", {
       requestId,
       deviceId,
-      status: device.status,
-      currentFacility: device.currentFacility,
-      lastEnrollment: device.lastEnrollment,
+      facilityId: qrCode.facilityId._id,
+      enrollmentId: enrollment._id,
+      visitorId: enrollment.visitorId,
     });
 
-    // Record scan on QR code
-    await qrCode.recordScan();
-
-    logger.info("QR scan recorded", {
-      requestId,
-      qrCodeId: qrCode.qrCodeId,
-      scanCount: qrCode.scanCount,
-    });
-
-    // Return response in requested format
-    logger.info("Entry scan completed successfully", {
-      requestId,
-      deviceId,
-      enrollmentId: enrollment.enrollmentId,
-      facilityName: qrCode.facilityId.name,
-      visitorId: device.visitorId,
-    });
-
-    res.status(200).json({
+    return res.status(201).json({
       status: "success",
-      message: "Entry allowed",
+      message: "Camera locked and enrollment created",
       data: {
-        enrollmentId: enrollment.enrollmentId,
-        facilityId: qrCode.facilityId._id,
-        facilityName: qrCode.facilityId.name,
-        visitorId: device.visitorId,
-        action: "LOCK_CAMERA",
+        enrollment,
+        visitorId: enrollment.visitorId,
+        action: "lock",
       },
     });
   } catch (error) {
@@ -596,11 +442,10 @@ exports.scanEntry = async (req, res) => {
       requestId,
       deviceId,
       token,
-      deviceInfo,
       stack: error.stack,
     });
 
-    res.status(500).json({
+    return res.status(500).json({
       status: "error",
       message: "Internal server error",
       error: error.message,
@@ -611,7 +456,7 @@ exports.scanEntry = async (req, res) => {
 // @desc    Scan exit QR and unenroll device (unlock camera)
 // @route   POST /api/enrollments/scan-exit
 exports.scanExit = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { token, deviceId } = req.body;
 
   logger.info("Scan exit request received", {
@@ -652,11 +497,6 @@ exports.scanExit = async (req, res) => {
 
     if (!normalizedToken) {
       const error = "Token and deviceId are required";
-      logger.warn("Token normalization failed", {
-        requestId,
-        error,
-        originalTokenLength: token?.length,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -668,17 +508,17 @@ exports.scanExit = async (req, res) => {
       decoded = verifyToken(normalizedToken);
       logger.debug("JWT token verified successfully", {
         requestId,
-        qrCodeId: decoded.qrCodeId,
+        id: decoded.id,
       });
 
-      qrCode = await QRCode.findOne({ qrCodeId: decoded.qrCodeId }).populate(
+      qrCode = await QRCode.findById(decoded.id).populate(
         "facilityId"
       );
 
       if (!qrCode) {
         logger.warn("QR Code not found after JWT verification", {
           requestId,
-          qrCodeId: decoded.qrCodeId,
+          id: decoded.id,
         });
       }
     } catch (error) {
@@ -688,15 +528,16 @@ exports.scanExit = async (req, res) => {
         tokenLength: normalizedToken?.length,
       });
 
+      // Fallback: token might already be the stored token string (e.g., older QR flow)
       qrCode = await QRCode.findOne({ token: normalizedToken }).populate(
         "facilityId"
       );
 
       if (qrCode) {
-        decoded = { qrCodeId: qrCode.qrCodeId };
+        decoded = { id: qrCode._id };
         logger.info("Fallback lookup successful", {
           requestId,
-          qrCodeId: qrCode.qrCodeId,
+          id: qrCode._id,
           facilityId: qrCode.facilityId?._id,
         });
       } else {
@@ -718,7 +559,7 @@ exports.scanExit = async (req, res) => {
       const error = "Invalid or expired QR code";
       logger.warn(error, {
         requestId,
-        qrCodeId: qrCode?.qrCodeId,
+        id: qrCode?._id,
         isValid: qrCode?.isValid(),
         facilityId: qrCode?.facilityId?._id,
         expiresAt: qrCode?.expiresAt,
@@ -733,12 +574,6 @@ exports.scanExit = async (req, res) => {
     // Check if facility is active
     if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
       const error = "Facility is currently inactive. Scan not allowed.";
-      logger.warn(error, {
-        requestId,
-        qrCodeId: qrCode.qrCodeId,
-        facilityId: qrCode.facilityId?._id,
-        facilityStatus: qrCode.facilityId?.status,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -749,12 +584,6 @@ exports.scanExit = async (req, res) => {
     // Check if it's an exit QR
     if (qrCode.type !== "exit") {
       const error = "This QR code is not for exit";
-      logger.warn(error, {
-        requestId,
-        qrCodeId: qrCode.qrCodeId,
-        actualType: qrCode.type,
-        expectedType: "exit",
-      });
 
       return res.status(400).json({
         status: "error",
@@ -796,7 +625,7 @@ exports.scanExit = async (req, res) => {
       requestId,
       deviceId,
       hasActiveEnrollment: !!enrollment,
-      enrollmentId: enrollment?.enrollmentId,
+      enrollmentId: enrollment?._id,
       enrollmentFacility: enrollment?.facilityId,
     });
 
@@ -821,14 +650,6 @@ exports.scanExit = async (req, res) => {
     ) {
       const error =
         "Exit QR doesn't match this facility. Please scan the correct exit QR.";
-      logger.warn(error, {
-        requestId,
-        deviceId,
-        enrollmentFacility: enrollment.facilityId,
-        qrFacility: qrCode.facilityId?._id,
-        enrollmentId: enrollment.enrollmentId,
-        qrCodeId: qrCode.qrCodeId,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -842,7 +663,7 @@ exports.scanExit = async (req, res) => {
       deviceId,
       platform: device.deviceInfo.platform,
       facilityId: qrCode.facilityId._id,
-      enrollmentId: enrollment.enrollmentId,
+      enrollmentId: enrollment._id,
     });
 
     const unlockResult = await mdmService.unlockCamera(
@@ -859,7 +680,7 @@ exports.scanExit = async (req, res) => {
         requestId,
         facilityId: qrCode.facilityId._id,
         facilityName: qrCode.facilityId.name,
-        enrollmentId: enrollment.enrollmentId,
+        enrollmentId: enrollment._id,
       }
     );
 
@@ -870,7 +691,7 @@ exports.scanExit = async (req, res) => {
         platform: device.deviceInfo.platform,
         error: unlockResult.error,
         facilityId: qrCode.facilityId._id,
-        enrollmentId: enrollment.enrollmentId,
+        enrollmentId: enrollment._id,
       });
 
       return res.status(500).json({
@@ -889,7 +710,7 @@ exports.scanExit = async (req, res) => {
     logger.logEnrollment(
       "completed",
       {
-        enrollmentId: enrollment.enrollmentId,
+        enrollmentId: enrollment._id,
         deviceId: device.deviceId,
         facilityId: qrCode.facilityId._id,
         status: enrollment.status,
@@ -915,17 +736,11 @@ exports.scanExit = async (req, res) => {
     // Record scan
     await qrCode.recordScan();
 
-    logger.info("QR scan recorded", {
-      requestId,
-      qrCodeId: qrCode.qrCodeId,
-      scanCount: qrCode.scanCount,
-    });
-
     // Return response in requested format
     logger.info("Exit scan completed successfully", {
       requestId,
       deviceId,
-      enrollmentId: enrollment.enrollmentId,
+      id: enrollment._id,
       facilityName: qrCode.facilityId.name,
     });
 

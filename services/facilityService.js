@@ -5,14 +5,13 @@ const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const mdmService = require("../utils/mdmService");
 
-// Find facility by either public facilityId or Mongo _id
+// Find facility by Mongo _id
 const findFacilityById = async (id, adminId = null) => {
-  const query = {
-    $or: [
-      { facilityId: id },
-      ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []),
-    ],
-  };
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return null;
+  }
+
+  const query = { _id: id };
 
   if (adminId) {
     query.createdBy = adminId;
@@ -57,7 +56,6 @@ const attachActiveQRCodes = async (facilities, req) => {
     acc[key] = acc[key] || [];
     acc[key].push({
       id: qr._id,
-      qrCodeId: qr.qrCodeId,
       type: qr.type,
       action: qr.action,
       status: qr.status,

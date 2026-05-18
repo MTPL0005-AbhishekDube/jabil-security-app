@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 
 const enrollmentSchema = new mongoose.Schema(
   {
-    enrollmentId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     deviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Device",
@@ -16,6 +11,10 @@ const enrollmentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Facility",
       required: true,
+    },
+    visitorId: {
+      type: String,
+      trim: true,
     },
     entryQRCode: {
       type: mongoose.Schema.Types.ObjectId,

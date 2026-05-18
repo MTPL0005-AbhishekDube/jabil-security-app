@@ -18,12 +18,6 @@ const deviceSchema = new mongoose.Schema(
       },
       deviceName: String,
     },
-    visitorId: {
-      type: String,
-      unique: true,
-      sparse: true,
-      trim: true,
-    },
     pushToken: {
       type: String,
       trim: true,
@@ -34,7 +28,7 @@ const deviceSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "inactive", "blocked"],
+      enum: ["active", "inactive"],
       default: "inactive",
     },
     lastEnrollment: {

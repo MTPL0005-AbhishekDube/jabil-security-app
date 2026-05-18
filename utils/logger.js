@@ -70,12 +70,12 @@ class Logger {
   }
 
   // Specialized logging methods for QR operations
-  logQRScan(operation, { deviceId, token, qrCodeId, facilityId, ...meta }) {
+  logQRScan(operation, { deviceId, token, id, facilityId, ...meta }) {
     this.info(`QR ${operation} scan initiated`, {
       operation,
       deviceId,
       token: token ? token.substring(0, 20) + "..." : "none",
-      qrCodeId,
+      id,
       facilityId,
       timestamp: new Date().toISOString(),
       ...meta,
@@ -85,13 +85,13 @@ class Logger {
   logQRError(
     operation,
     error,
-    { deviceId, token, qrCodeId, facilityId, ...meta }
+    { deviceId, token, id, facilityId, ...meta }
   ) {
     this.error(`QR ${operation} failed`, {
       operation,
       deviceId,
       token: token ? token.substring(0, 20) + "..." : "none",
-      qrCodeId,
+      id,
       facilityId,
       error: error.message,
       stack: error.stack,
@@ -124,7 +124,7 @@ class Logger {
   logEnrollment(operation, enrollmentData, meta = {}) {
     this.info(`Enrollment ${operation}`, {
       operation,
-      enrollmentId: enrollmentData.enrollmentId,
+      enrollmentId: enrollmentData.enrollmentId || enrollmentData._id,
       deviceId: enrollmentData.deviceId,
       facilityId: enrollmentData.facilityId,
       status: enrollmentData.status,

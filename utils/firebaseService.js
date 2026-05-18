@@ -62,13 +62,6 @@ class FirebaseService {
 
     try {
       if (!this.isInitialized) {
-        logger.warn(
-          `[Firebase] Push notification failed - Firebase not initialized`,
-          {
-            operationId,
-            hasPushToken: !!pushToken,
-          }
-        );
         return { success: false, error: "Firebase not initialized" };
       }
 
@@ -114,15 +107,6 @@ class FirebaseService {
         },
       };
 
-      logger.info(`[Firebase] Sending enhanced push notification`, {
-        operationId,
-        pushToken: pushToken.substring(0, 20) + "...",
-        title: message.notification.title,
-        body: message.notification.body,
-        type: message.data.type,
-        deviceId: message.data.deviceId,
-      });
-
       const response = await admin.messaging().send(message);
 
       logger.info(`[Firebase] Enhanced push notification sent successfully`, {
@@ -161,13 +145,6 @@ class FirebaseService {
 
     try {
       if (!this.isInitialized) {
-        logger.warn(
-          `[Firebase] Multicast notification failed - Firebase not initialized`,
-          {
-            operationId,
-            tokenCount: pushTokens?.length || 0,
-          }
-        );
         return { success: false, error: "Firebase not initialized" };
       }
 
@@ -205,13 +182,6 @@ class FirebaseService {
           },
         },
       };
-
-      logger.info(`[Firebase] Sending multicast notification`, {
-        operationId,
-        tokenCount: pushTokens.length,
-        title: message.notification.title,
-        body: message.notification.body,
-      });
 
       const response = await admin.messaging().sendMulticast(message);
 
@@ -254,14 +224,6 @@ class FirebaseService {
 
     try {
       if (!this.isInitialized) {
-        logger.warn(
-          `[Firebase] Topic subscription failed - Firebase not initialized`,
-          {
-            operationId,
-            topic,
-            tokenCount: pushTokens?.length || 0,
-          }
-        );
         return { success: false, error: "Firebase not initialized" };
       }
 

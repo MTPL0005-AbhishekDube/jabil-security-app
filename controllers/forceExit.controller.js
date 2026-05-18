@@ -1,8 +1,8 @@
+const mongoose = require("mongoose");
 const ForceExitRequest = require("../models/ForceExitRequest.model");
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const Facility = require("../models/Facility.model");
-const { v4: uuidv4 } = require("uuid");
 const { generateRestoreToken } = require("../utils/jwt");
 const firebaseService = require("../utils/firebaseService");
 const mdmService = require("../utils/mdmService");
@@ -11,7 +11,7 @@ const logger = require("../utils/logger");
 // @desc    Create a new force exit request for user
 // @route   POST /api/force-exit/request
 exports.createForceExitRequest = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { deviceId, reason } = req.body;
 
   logger.info("Force exit request received", {
@@ -25,11 +25,6 @@ exports.createForceExitRequest = async (req, res) => {
   try {
     if (!deviceId) {
       const error = "deviceId is required";
-      logger.warn("Validation failed", {
-        requestId,
-        error,
-        hasDeviceId: !!deviceId,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -37,16 +32,10 @@ exports.createForceExitRequest = async (req, res) => {
       });
     }
 
-    // Find device
-    const device = await Device.findOne({ deviceId });
-
-    logger.debug("Device lookup result", {
-      requestId,
-      deviceId,
-      deviceExists: !!device,
-      currentStatus: device?.status,
-      currentFacility: device?.currentFacility,
-    });
+    // Find device and active enrollment
+    const device = await Device.findOne({ deviceId }).populate(
+      "lastEnrollment"
+    );
 
     if (!device) {
       const error = "Device not found";
@@ -62,14 +51,12 @@ exports.createForceExitRequest = async (req, res) => {
     }
 
     // Check if device has an active enrollment
-    if (!device.currentFacility || device.status !== "active") {
+    if (
+      !device.currentFacility ||
+      device.status !== "active" ||
+      !device.lastEnrollment
+    ) {
       const error = "Device is not currently enrolled in any facility";
-      logger.warn(error, {
-        requestId,
-        deviceId,
-        status: device.status,
-        currentFacility: device.currentFacility,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -78,12 +65,15 @@ exports.createForceExitRequest = async (req, res) => {
     }
 
     // Check if device already has a pending request
-    const hasPending = await ForceExitRequest.hasPendingRequest(device._id);
+    const hasPending = await ForceExitRequest.findOne({
+      deviceId: device._id,
+      status: "pending",
+    });
 
     logger.debug("Pending request check", {
       requestId,
       deviceId,
-      hasPendingRequest: hasPending,
+      hasPendingRequest: !!hasPending,
     });
 
     if (hasPending) {
@@ -101,26 +91,25 @@ exports.createForceExitRequest = async (req, res) => {
 
     // Create force exit request
     const forceExitRequest = await ForceExitRequest.create({
-      requestId: uuidv4(),
       deviceId: device._id,
-      visitorId: device.visitorId,
+      visitorId: device.lastEnrollment.visitorId,
       facilityId: device.currentFacility,
       reason,
     });
 
     logger.info("Force exit request created", {
       requestId,
-      forceExitRequestId: forceExitRequest.requestId,
+      forceExitRequestId: forceExitRequest._id,
       deviceId,
       facilityId: device.currentFacility,
-      visitorId: device.visitorId,
+      visitorId: forceExitRequest.visitorId,
     });
 
     res.status(201).json({
       status: "success",
       message: "Force exit request submitted successfully",
       data: {
-        requestId: forceExitRequest.requestId,
+        requestId: forceExitRequest._id,
         status: forceExitRequest.status,
         requestedAt: forceExitRequest.requestedAt,
       },
@@ -144,7 +133,7 @@ exports.createForceExitRequest = async (req, res) => {
 // @desc    Get force exit request status for device
 // @route   GET /api/force-exit/status/:deviceId
 exports.getRequestStatus = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { deviceId } = req.params;
 
   logger.info("Get force exit request status", {
@@ -155,10 +144,6 @@ exports.getRequestStatus = async (req, res) => {
   try {
     if (!deviceId) {
       const error = "deviceId is required";
-      logger.warn("Validation failed", {
-        requestId,
-        error,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -170,10 +155,6 @@ exports.getRequestStatus = async (req, res) => {
 
     if (!device) {
       const error = "Device not found";
-      logger.warn(error, {
-        requestId,
-        deviceId,
-      });
 
       return res.status(404).json({
         status: "error",
@@ -239,7 +220,7 @@ exports.getRequestStatus = async (req, res) => {
 // @desc    Handle force exit completion (when user taps notification)
 // @route   POST /api/force-exit/complete
 exports.completeForceExit = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { token, deviceId } = req.body;
 
   logger.info("Complete force exit request", {
@@ -289,10 +270,6 @@ exports.completeForceExit = async (req, res) => {
 
     if (!forceExitRequest) {
       const error = "No approved force exit request found";
-      logger.warn(error, {
-        requestId,
-        deviceId,
-      });
 
       return res.status(404).json({
         status: "error",
@@ -336,7 +313,7 @@ exports.completeForceExit = async (req, res) => {
 
       logger.info("Enrollment marked as forced exit", {
         requestId,
-        enrollmentId: enrollment.enrollmentId,
+        enrollmentId: enrollment._id,
         deviceId,
       });
     }
@@ -381,16 +358,10 @@ exports.completeForceExit = async (req, res) => {
 };
 
 // @desc    Get pending force exit requests for admin
-// @route   GET /api/force-exit/pending
+// @route   GET /api/force-exit/pendingList
 exports.getPendingRequestsList = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
   const { facilityId } = req.query;
-
-  logger.info("Get pending requests request", {
-    requestId,
-    facilityId,
-    adminId: req.admin?._id,
-  });
 
   try {
     // Find facilities created by this admin
@@ -460,25 +431,14 @@ exports.getPendingRequestsList = async (req, res) => {
 // @desc    Approve a force exit request
 // @route   POST /api/force-exit/approve/:requestId
 exports.approveRequest = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
-  const { requestId: forceExitRequestId } = req.params;
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
+  const { id } = req.params;
   const { adminNotes } = req.body;
   const adminId = req.admin?._id;
 
-  logger.info("Approve force exit request", {
-    requestId,
-    forceExitRequestId,
-    adminId,
-    hasNotes: !!adminNotes,
-  });
-
   try {
-    if (!forceExitRequestId) {
+    if (!id) {
       const error = "Request ID is required";
-      logger.warn("Validation failed", {
-        requestId,
-        error,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -486,23 +446,19 @@ exports.approveRequest = async (req, res) => {
       });
     }
 
-    const forceExitRequest = await ForceExitRequest.findOne({
-      requestId: forceExitRequestId,
-    }).populate("deviceId");
+    const forceExitRequest = await ForceExitRequest.findById(id).populate(
+      "deviceId"
+    );
 
     logger.debug("Force exit request lookup", {
       requestId,
-      forceExitRequestId,
+      forceExitRequestId: id,
       requestFound: !!forceExitRequest,
       currentStatus: forceExitRequest?.status,
     });
 
     if (!forceExitRequest) {
       const error = "Force exit request not found";
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-      });
 
       return res.status(404).json({
         status: "error",
@@ -518,12 +474,6 @@ exports.approveRequest = async (req, res) => {
     if (!facility) {
       const error =
         "You do not have permission to approve requests for this facility";
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-        facilityId: forceExitRequest.facilityId,
-        adminId: req.admin?._id,
-      });
 
       return res.status(403).json({
         status: "error",
@@ -533,11 +483,6 @@ exports.approveRequest = async (req, res) => {
 
     if (forceExitRequest.status !== "pending") {
       const error = `Request cannot be approved. Current status: ${forceExitRequest.status}`;
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-        currentStatus: forceExitRequest.status,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -630,25 +575,14 @@ exports.approveRequest = async (req, res) => {
 // @desc    Deny a force exit request
 // @route   POST /api/force-exit/deny/:requestId
 exports.denyRequest = async (req, res) => {
-  const requestId = req.requestId || uuidv4();
-  const { requestId: forceExitRequestId } = req.params;
+  const requestId = req.requestId || new mongoose.Types.ObjectId();
+  const { id } = req.params;
   const { adminNotes } = req.body;
   const adminId = req.admin?._id;
 
-  logger.info("Deny force exit request", {
-    requestId,
-    forceExitRequestId,
-    adminId,
-    hasNotes: !!adminNotes,
-  });
-
   try {
-    if (!forceExitRequestId) {
+    if (!id) {
       const error = "Request ID is required";
-      logger.warn("Validation failed", {
-        requestId,
-        error,
-      });
 
       return res.status(400).json({
         status: "error",
@@ -656,23 +590,12 @@ exports.denyRequest = async (req, res) => {
       });
     }
 
-    const forceExitRequest = await ForceExitRequest.findOne({
-      requestId: forceExitRequestId,
-    }).populate("deviceId");
-
-    logger.debug("Force exit request lookup", {
-      requestId,
-      forceExitRequestId,
-      requestFound: !!forceExitRequest,
-      currentStatus: forceExitRequest?.status,
-    });
+    const forceExitRequest = await ForceExitRequest.findById(id).populate(
+      "deviceId"
+    );
 
     if (!forceExitRequest) {
       const error = "Force exit request not found";
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-      });
 
       return res.status(404).json({
         status: "error",
@@ -688,12 +611,6 @@ exports.denyRequest = async (req, res) => {
     if (!facility) {
       const error =
         "You do not have permission to deny requests for this facility";
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-        facilityId: forceExitRequest.facilityId,
-        adminId: req.admin?._id,
-      });
 
       return res.status(403).json({
         status: "error",
@@ -703,11 +620,6 @@ exports.denyRequest = async (req, res) => {
 
     if (forceExitRequest.status !== "pending") {
       const error = `Request cannot be denied. Current status: ${forceExitRequest.status}`;
-      logger.warn(error, {
-        requestId,
-        forceExitRequestId,
-        currentStatus: forceExitRequest.status,
-      });
 
       return res.status(400).json({
         status: "error",

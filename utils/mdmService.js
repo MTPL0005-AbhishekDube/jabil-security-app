@@ -258,7 +258,7 @@ class MDMService {
           PayloadType: "com.apple.applicationaccess",
           PayloadVersion: 1,
           PayloadIdentifier: `com.cameralock.restrictions.${deviceId}`,
-          PayloadUUID: deviceId,
+          PayloadID: deviceId,
           PayloadDisplayName: "Camera Restrictions",
           allowCamera: false,
         },
@@ -266,7 +266,7 @@ class MDMService {
       PayloadDisplayName: "Camera Lock Profile",
       PayloadIdentifier: `com.cameralock.profile.${deviceId}`,
       PayloadType: "Configuration",
-      PayloadUUID: deviceId,
+      PayloadID: deviceId,
       PayloadVersion: 1,
     };
   }

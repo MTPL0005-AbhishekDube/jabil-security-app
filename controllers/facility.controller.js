@@ -1,4 +1,3 @@
-const { v4: uuidv4 } = require("uuid");
 const Facility = require("../models/Facility.model");
 const Device = require("../models/Device.model");
 const { generateDailyQRsForFacility } = require("../services/dailyQRService");
@@ -41,7 +40,6 @@ exports.createFacility = async (req, res) => {
     }
 
     const facility = await Facility.create({
-      facilityId: uuidv4(),
       name,
       description,
       location,
@@ -86,7 +84,6 @@ exports.getAllFacilities = async (req, res) => {
     if (q) {
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
-        { facilityId: { $regex: q, $options: "i" } },
       ];
     }
 

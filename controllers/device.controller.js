@@ -21,7 +21,6 @@ exports.listActiveDevices = async (req, res) => {
       const regex = new RegExp(q, "i");
       searchFilter.$or = [
         { deviceId: regex },
-        { visitorId: regex },
         { "deviceInfo.deviceName": regex },
         { "deviceInfo.model": regex },
       ];
@@ -70,6 +69,24 @@ exports.listActiveDevices = async (req, res) => {
           preserveNullAndEmptyArrays: true,
         },
       },
+    ];
+
+    // If q is provided, search in lastEnrollmentDoc as well
+    if (q) {
+      const regex = new RegExp(q, "i");
+      pipeline.push({
+        $match: {
+          $or: [
+            { deviceId: regex },
+            { "deviceInfo.deviceName": regex },
+            { "deviceInfo.model": regex },
+            { "lastEnrollmentDoc.visitorId": regex },
+          ],
+        },
+      });
+    }
+
+    pipeline.push(
       // Filter by ownership: either current facility or last enrollment facility belongs to this admin
       {
         $match: {
@@ -81,7 +98,7 @@ exports.listActiveDevices = async (req, res) => {
       },
       {
         $addFields: {
-          enrollmentId: "$lastEnrollmentDoc.enrollmentId",
+          visitorId: "$lastEnrollmentDoc.visitorId",
           enrolledAt: "$lastEnrollmentDoc.enrolledAt",
           unenrolledAt: {
             $cond: [
@@ -92,7 +109,7 @@ exports.listActiveDevices = async (req, res) => {
           },
         },
       },
-    ];
+    );
 
     if (enrolledDateMatch) {
       pipeline.push({ $match: enrolledDateMatch });
@@ -132,7 +149,6 @@ exports.listActiveDevices = async (req, res) => {
                     {
                       _id: "$currentFacilityDoc._id",
                       name: "$currentFacilityDoc.name",
-                      facilityId: "$currentFacilityDoc.facilityId",
                     },
                     null,
                   ],
@@ -178,20 +194,20 @@ exports.listActiveDevices = async (req, res) => {
 // @route   GET /api/enrollments/admin/active-device/:deviceId
 exports.getEnrollmentDetails = async (req, res) => {
   try {
-    const { deviceId, enrollmentId } = req.query;
+    const { deviceId, id } = req.query;
 
-    if (!deviceId || !enrollmentId) {
+    if (!deviceId || !id) {
       return res.status(400).json({
         status: "error",
-        message: "deviceId and enrollmentId are required",
+        message: "deviceId and enrollment id are required",
       });
     }
 
     const [device, enrollment] = await Promise.all([
       Device.findOne({ deviceId }).select("deviceId deviceInfo status"),
-      Enrollment.findOne({ enrollmentId })
+      Enrollment.findById(id)
         .select(
-          "enrollmentId deviceId facilityId entryQRCode exitQRCode enrolledAt unenrolledAt"
+          "deviceId facilityId visitorId entryQRCode exitQRCode enrolledAt unenrolledAt"
         )
         .populate("facilityId")
         .populate("entryQRCode")
@@ -226,7 +242,7 @@ exports.getEnrollmentDetails = async (req, res) => {
     return res.status(200).json({
       status: "success",
       data: {
-        enrollmentId: enrollment.enrollmentId,
+        id: enrollment._id,
         device: {
           deviceId: device.deviceId,
           deviceName: device.deviceInfo?.deviceName,

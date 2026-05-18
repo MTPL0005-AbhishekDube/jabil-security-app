@@ -1,13 +1,13 @@
 const cron = require("node-cron");
 const Facility = require("../models/Facility.model");
 const QRCode = require("../models/QRCode.model");
-const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const qrGenerator = require("../utils/qrGenerator");
 const { sendEmail, buildDailyQREmail } = require("../utils/emailService");
-const { refreshAccessCodesForFacility } = require("./facilityAccessCodeService");
+const {
+  refreshAccessCodesForFacility,
+} = require("./facilityAccessCodeService");
 const mdmService = require("../utils/mdmService");
-const { safeUnlink } = require("../utils/file");
 const logger = require("../utils/logger");
 
 // basic slugify for filenames/ids
@@ -22,16 +22,6 @@ const RAW_DEFAULT_TZ = process.env.DAILY_QR_TZ || "UTC";
 const TZ_ALIASES = {
   IST: "Asia/Kolkata",
 };
-
-// Configurable QR validity window (defaults to 90 days)
-const getValidityDays = () => {
-  const parsed = parseInt(process.env.QR_VALIDITY_DAYS, 10);
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  return 90;
-};
-
-const QR_VALIDITY_DAYS = getValidityDays();
-const QR_VALIDITY_MS = QR_VALIDITY_DAYS * 24 * 60 * 60 * 1000;
 
 const normalizeTimeZone = (tz) => {
   const candidate = TZ_ALIASES[tz] || tz || "UTC";
@@ -78,30 +68,29 @@ async function generateDailyQRsForFacility(
 
   // Step 1: Delete ALL existing QR codes for this facility (regardless of validity)
   // This ensures we have a clean slate for the new day
-  logger.info(`Deleting existing QR codes for ${facility.name} for date ${dateStr}`);
+  logger.info(
+    `Deleting existing QR codes for ${facility.name} for date ${dateStr}`
+  );
   const deletedCount = await QRCode.deleteMany({
-    facilityId: facility._id
+    facilityId: facility._id,
   });
 
   if (deletedCount > 0) {
-    logger.info(`Deleted ${deletedCount} existing QR codes for ${facility.name}`);
+    logger.info(
+      `Deleted ${deletedCount} existing QR codes for ${facility.name}`
+    );
   }
 
   const slug = slugify(facility.name);
 
   // Entry QR
-  const entry = await qrGenerator.generateCompleteQRCode(
-    "lock",
-    facility._id,
-    {
-      location: facility.name,
-      type: "entry",
-    },
-    { qrCodeId: `${slug}_Entry_Code_${dateStr}` }
-  );
+  const entry = await qrGenerator.generateCompleteQRCode("lock", facility._id, {
+    location: facility.name,
+    type: "entry",
+  });
 
   const entryDoc = await QRCode.create({
-    qrCodeId: entry.qrCodeId,
+    _id: entry.id,
     facilityId: facility._id,
     facilityName: facility.name,
     type: "entry",
@@ -123,12 +112,11 @@ async function generateDailyQRsForFacility(
     {
       location: facility.name,
       type: "exit",
-    },
-    { qrCodeId: `${slug}_Exit_Code_${dateStr}` }
+    }
   );
 
   const exitDoc = await QRCode.create({
-    qrCodeId: exit.qrCodeId,
+    _id: exit.id,
     facilityId: facility._id,
     facilityName: facility.name,
     type: "exit",
@@ -224,7 +212,9 @@ function scheduleDailyJob() {
     cronExp,
     async () => {
       const startTime = new Date();
-      logger.info(`Starting daily QR generation job at ${startTime.toISOString()}`);
+      logger.info(
+        `Starting daily QR generation job at ${startTime.toISOString()}`
+      );
 
       try {
         const now = new Date();
@@ -247,34 +237,35 @@ function scheduleDailyJob() {
             const result = await generateDailyQRsForFacility(facility, now);
             if (result) {
               logger.info(`Generated new QR codes for ${facility.name}`);
-              logger.info(`QR codes valid from ${result.entry.validFrom.toISOString()} to ${result.entry.validUntil.toISOString()}`);
+              logger.info(
+                `QR codes valid from ${result.entry.validFrom.toISOString()} to ${result.entry.validUntil.toISOString()}`
+              );
             } else {
               logger.warn(`No QR codes generated for ${facility.name}`);
             }
 
             successCount++;
           } catch (facilityError) {
-            logger.error(`Failed to process facility ${facility.name}: ${facilityError.message}`);
+            logger.error(
+              `Failed to process facility ${facility.name}: ${facilityError.message}`
+            );
             errorCount++;
           }
         }
 
-        const endTime = new Date();
-        const duration = endTime - startTime;
-
-        logger.info(`Daily QR generation job completed in ${duration}ms`);
         logger.info(`Success: ${successCount} facilities`);
         if (errorCount > 0) {
           logger.warn(`Errors: ${errorCount} facilities`);
         }
-
       } catch (error) {
-        logger.error(`Daily QR generation job failed: ${error.message}`, { stack: error.stack });
+        logger.error(`Daily QR generation job failed: ${error.message}`, {
+          stack: error.stack,
+        });
       }
     },
     {
       timezone,
-      scheduled: true
+      scheduled: true,
     }
   );
 

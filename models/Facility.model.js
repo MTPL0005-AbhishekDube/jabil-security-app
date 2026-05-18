@@ -2,12 +2,6 @@ const mongoose = require("mongoose");
 
 const facilitySchema = new mongoose.Schema(
   {
-    facilityId: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
     name: {
       type: String,
       required: [true, "Facility name is required"],
@@ -33,12 +27,11 @@ const facilitySchema = new mongoose.Schema(
     },
     timezone: {
       type: String,
-      default: "UTC",
       trim: true,
     },
     status: {
       type: String,
-      enum: ["active", "inactive", "maintenance"],
+      enum: ["active", "inactive"],
       default: "active",
     },
     entryCode: {

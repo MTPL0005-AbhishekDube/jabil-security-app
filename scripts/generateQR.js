@@ -33,12 +33,11 @@ const generateForFacility = async (facility) => {
   const entryQR = await qrGenerator.generateCompleteQRCode(
     "lock",
     facility._id,
-    { location: "Main Entrance", type: "entry" },
-    { qrCodeId: `${slug}_Entry_Code_${today}` }
+    { location: "Main Entrance", type: "entry" }
   );
 
   const entryQRCode = await QRCode.create({
-    qrCodeId: entryQR.qrCodeId,
+    _id: entryQR.id,
     facilityId: facility._id,
     facilityName: facility.name,
     type: "entry",
@@ -52,19 +51,18 @@ const generateForFacility = async (facility) => {
   });
 
   console.log("Entry QR Code generated");
-  console.log(`ID: ${entryQRCode.qrCodeId}`);
+  console.log(`ID: ${entryQRCode._id}`);
   console.log(`Valid until: ${validUntil.toISOString()}\n`);
 
   // Exit QR
   const exitQR = await qrGenerator.generateCompleteQRCode(
     "unlock",
     facility._id,
-    { location: "Main Exit", type: "exit" },
-    { qrCodeId: `${slug}_Exit_Code_${today}` }
+    { location: "Main Exit", type: "exit" }
   );
 
   const exitQRCode = await QRCode.create({
-    qrCodeId: exitQR.qrCodeId,
+    _id: exitQR.id,
     facilityId: facility._id,
     facilityName: facility.name,
     type: "exit",
@@ -78,7 +76,7 @@ const generateForFacility = async (facility) => {
   });
 
   console.log("Exit QR Code generated");
-  console.log(`ID: ${exitQRCode.qrCodeId}`);
+  console.log(`ID: ${exitQRCode._id}`);
   console.log(`Valid until: ${validUntil.toISOString()}\n`);
 
   const accessCodes = await refreshAccessCodesForFacility(facility._id, new Date());

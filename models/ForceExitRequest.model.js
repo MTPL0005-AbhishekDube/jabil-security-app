@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 
 const forceExitRequestSchema = new mongoose.Schema(
   {
-    requestId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     deviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Device",
@@ -74,7 +69,6 @@ const forceExitRequestSchema = new mongoose.Schema(
 forceExitRequestSchema.index({ deviceId: 1, status: 1 });
 forceExitRequestSchema.index({ status: 1, requestedAt: -1 });
 forceExitRequestSchema.index({ facilityId: 1, status: 1 });
-forceExitRequestSchema.index({ requestId: 1 }, { unique: true });
 
 // Ensure only one pending request per device
 forceExitRequestSchema.index({ deviceId: 1, status: 1 }, {

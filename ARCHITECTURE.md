@@ -44,7 +44,7 @@ MongoDB ──▶ Admin, Facility, QRCode, Device, Enrollment collections
 
 ## Data Model Highlights
 - **Admin**: username/password (argon2); JWT used for admin routes.
-- **Facility**: `facilityId` (UUID), notification emails, timezone, status.
+- **Facility**: `facilityId`, notification emails, timezone, status.
 - **Facility Access Code**: random 6-digit entry/exit codes per facility (rotated every 15s, valid 20s).
 - **QRCode**: entry/exit tokens with validity window and scan counters.
 - **Device**: device metadata, visitorId, push token, `currentFacility`.
