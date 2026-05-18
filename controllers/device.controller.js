@@ -259,7 +259,7 @@ exports.getEnrollmentDetails = async (req, res) => {
         entryQRCode: enrollment.entryQRCode
           ? {
               id: enrollment.entryQRCode._id,
-              name: enrollment.entryQRCode.qrCodeId,
+              type: enrollment.entryQRCode.type,
             }
           : null,
         enrolledAt: enrollment.enrolledAt,

@@ -87,6 +87,11 @@ exports.scanExitByCode = async (req, res) => {
     const facility = await findFacilityById(facilityId);
     if (!facility || facility.status !== "active") {
       const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        facilityId,
+        facilityStatus: facility?.status,
+      });
 
       return res.status(400).json({
         status: "error",
@@ -103,6 +108,11 @@ exports.scanExitByCode = async (req, res) => {
     });
 
     if (!validExitCode) {
+      logger.warn("Invalid or expired exit code", {
+        requestId,
+        deviceId,
+        facilityId: facility._id,
+      });
 
       return res.status(400).json({
         status: "error",
@@ -119,6 +129,10 @@ exports.scanExitByCode = async (req, res) => {
     }).sort({ validUntil: -1 });
 
     if (!exitQrCode || !exitQrCode.isValid()) {
+      logger.warn("No active exit QR available for facility", {
+        requestId,
+        facilityId: facility._id,
+      });
 
       return res.status(400).json({
         status: "error",
@@ -263,6 +277,12 @@ exports.scanEntry = async (req, res) => {
     // Check if facility is active
     if (!qrCode.facilityId || qrCode.facilityId.status !== "active") {
       const error = "Facility is currently inactive. Scan not allowed.";
+      logger.warn(error, {
+        requestId,
+        id: qrCode._id,
+        facilityId: qrCode.facilityId?._id,
+        facilityStatus: qrCode.facilityId?.status,
+      });
 
       return res.status(400).json({
         status: "error",
@@ -327,7 +347,7 @@ exports.scanEntry = async (req, res) => {
     const existingEnrollment = await Enrollment.findOne({
       deviceId: device._id,
       status: "active",
-    });
+    }).populate("facilityId");
 
     logger.debug("Checking existing enrollment", {
       requestId,
@@ -339,7 +359,7 @@ exports.scanEntry = async (req, res) => {
     if (existingEnrollment) {
       // EDGE CASE 1: Device is already enrolled in the SAME facility
       // Action: Return 200 OK (Idempotent success) but do not create new enrollment
-      if (String(existingEnrollment.facilityId) === String(qrCode.facilityId._id)) {
+      if (String(existingEnrollment.facilityId._id || existingEnrollment.facilityId) === String(qrCode.facilityId._id)) {
         logger.info("Device already enrolled in this facility", {
           requestId,
           deviceId,
@@ -359,17 +379,19 @@ exports.scanEntry = async (req, res) => {
       }
 
       // EDGE CASE 2: Device is enrolled in a DIFFERENT facility
-      // Action: Forcibly complete previous enrollment before starting new one
-      logger.warn("Device enrolled in different facility. Force completing old enrollment.", {
+      // Action: Return 409 Conflict
+      const error = `Device is already enrolled in another facility (${existingEnrollment.facilityId?.name || 'Unknown'}). Please scan exit there first.`;
+      logger.warn("Device enrolled in different facility", {
         requestId,
         deviceId,
-        oldFacility: existingEnrollment.facilityId,
-        newFacility: qrCode.facilityId._id,
+        currentFacility: existingEnrollment.facilityId,
+        attemptedFacility: qrCode.facilityId._id,
       });
 
-      existingEnrollment.status = "completed";
-      existingEnrollment.unenrolledAt = new Date();
-      await existingEnrollment.save();
+      return res.status(409).json({
+        status: "error",
+        message: error,
+      });
     }
 
     // Assign or retrieve visitorId for this device in this facility
