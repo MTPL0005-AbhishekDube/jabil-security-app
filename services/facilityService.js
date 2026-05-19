@@ -4,6 +4,7 @@ const QRCode = require("../models/QRCode.model");
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const mdmService = require("../utils/mdmService");
+const { ensureFreshQRCodes } = require("./qrRotationService");
 
 // Find facility by Mongo _id
 const findFacilityById = async (id, adminId = null) => {
@@ -17,7 +18,11 @@ const findFacilityById = async (id, adminId = null) => {
     query.createdBy = adminId;
   }
 
-  return await Facility.findOne(query);
+  let facility = await Facility.findOne(query);
+  if (facility && facility.status === "active") {
+    facility = await ensureFreshQRCodes(facility);
+  }
+  return facility;
 };
 
 // Build a public-facing URL for stored QR images
@@ -40,7 +45,18 @@ const attachActiveQRCodes = async (facilities, req) => {
   if (!facilities?.length) return [];
 
   const now = new Date();
-  const facilityIds = facilities.map((f) => f._id);
+  
+  // Ensure each facility has fresh QR codes before attaching
+  const freshFacilities = await Promise.all(
+    facilities.map(async (f) => {
+      if (f.status === "active") {
+        return await ensureFreshQRCodes(f);
+      }
+      return f;
+    })
+  );
+
+  const facilityIds = freshFacilities.map((f) => f._id);
 
   const qrs = await QRCode.find({
     facilityId: { $in: facilityIds },
@@ -70,9 +86,10 @@ const attachActiveQRCodes = async (facilities, req) => {
     return acc;
   }, {});
 
-  return facilities.map((facility) => {
+  return freshFacilities.map((facility) => {
     const obj = facility.toObject ? facility.toObject() : { ...facility };
     obj.activeQRCodes = grouped[facility._id.toString()] || [];
+    obj.nextRotationAt = facility.nextRotationAt; // Include nextRotationAt for frontend auto-refresh
     obj.accessCodes = {
       entryCode: obj.entryCode || null,
       entryCodeValidUntil: obj.entryCodeValidUntil || null,

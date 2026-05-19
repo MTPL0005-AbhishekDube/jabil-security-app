@@ -1,0 +1,179 @@
+const Facility = require("../models/Facility.model");
+const QRCode = require("../models/QRCode.model");
+const qrGenerator = require("../utils/qrGenerator");
+const logger = require("../utils/logger");
+const mongoose = require("mongoose");
+const cron = require("node-cron");
+
+/**
+ * Calculates the next rotation timestamp based on facility settings
+ * @param {Date} referenceDate 
+ * @param {Number} value 
+ * @param {String} unit 
+ * @returns {Date}
+ */
+const calculateNextRotation = (referenceDate, value, unit) => {
+  const date = new Date(referenceDate);
+  switch (unit) {
+    case "seconds":
+      date.setSeconds(date.getSeconds() + value);
+      break;
+    case "minutes":
+      date.setMinutes(date.getMinutes() + value);
+      break;
+    case "hours":
+      date.setHours(date.getHours() + value);
+      break;
+    case "days":
+      date.setDate(date.getDate() + value);
+      break;
+    default:
+      date.setHours(date.getHours() + 24); // Default 24h
+  }
+  return date;
+};
+
+/**
+ * Rotates QR codes for a specific facility
+ * @param {Object} facility 
+ * @returns {Promise<Object>} The fresh QR codes
+ */
+const rotateFacilityQRs = async (facility) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const now = new Date();
+    
+    // Step 1: Delete existing QR codes for this facility
+    await QRCode.deleteMany({ facilityId: facility._id }, { session });
+
+    // Step 2: Generate new QR codes
+    // We use a fixed ID pattern or just fresh IDs. 
+    // Since we decoupled, we just need a valid Entry and Exit for this facility.
+    
+    // Entry QR
+    const entry = await qrGenerator.generateCompleteQRCode(
+      "lock",
+      facility._id,
+      { location: facility.name, type: "entry" }
+    );
+
+    const entryDoc = await QRCode.create([{
+      _id: entry.id,
+      facilityId: facility._id,
+      facilityName: facility.name,
+      type: "entry",
+      action: "lock",
+      token: entry.token,
+      url: entry.url,
+      imagePath: entry.imagePath,
+      metadata: { location: facility.name, type: "entry" },
+      status: "active",
+      validFrom: now,
+      validUntil: calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit),
+    }], { session });
+
+    // Exit QR
+    const exit = await qrGenerator.generateCompleteQRCode(
+      "unlock",
+      facility._id,
+      { location: facility.name, type: "exit" }
+    );
+
+    const exitDoc = await QRCode.create([{
+      _id: exit.id,
+      facilityId: facility._id,
+      facilityName: facility.name,
+      type: "exit",
+      action: "unlock",
+      token: exit.token,
+      url: exit.url,
+      imagePath: exit.imagePath,
+      metadata: { location: facility.name, type: "exit" },
+      status: "active",
+      validFrom: now,
+      validUntil: calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit),
+    }], { session });
+
+    // Step 3: Update facility's nextRotationAt
+    const nextRotationAt = calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit);
+    await Facility.updateOne(
+      { _id: facility._id },
+      { $set: { nextRotationAt } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    logger.info(`QR codes rotated for facility: ${facility.name}`, { facilityId: facility._id, nextRotationAt });
+
+    return { entry: entryDoc[0], exit: exitDoc[0] };
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error(`Failed to rotate QR codes for facility ${facility.name}: ${error.message}`, { stack: error.stack });
+    throw error;
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * Ensures a facility has fresh, non-expired QR codes.
+ * Call this before returning facility details to Admin.
+ * @param {Object} facility 
+ * @returns {Promise<Object>} The facility with fresh QRs attached
+ */
+const ensureFreshQRCodes = async (facility) => {
+  const now = new Date();
+  
+  // If nextRotationAt is in the past, or doesn't exist, rotate now
+  if (!facility.nextRotationAt || facility.nextRotationAt <= now) {
+    await rotateFacilityQRs(facility);
+    // Fetch the updated facility to get the new nextRotationAt
+    return await Facility.findById(facility._id);
+  }
+  
+  return facility;
+};
+
+/**
+ * Background task to rotate expired facilities
+ */
+const runRotationJob = async () => {
+  try {
+    const now = new Date();
+    const facilitiesToRotate = await Facility.find({
+      status: "active",
+      $or: [
+        { nextRotationAt: { $lte: now } },
+        { nextRotationAt: { $exists: false } }
+      ]
+    });
+
+    if (facilitiesToRotate.length > 0) {
+      logger.info(`Cron: Found ${facilitiesToRotate.length} facilities due for rotation`);
+      for (const facility of facilitiesToRotate) {
+        await rotateFacilityQRs(facility).catch(err => {
+          logger.error(`Cron rotation failed for ${facility.name}: ${err.message}`);
+        });
+      }
+    }
+  } catch (error) {
+    logger.error(`Background rotation job failed: ${error.message}`);
+  }
+};
+
+/**
+ * Schedules the rotation cron job (runs every 30 seconds)
+ */
+const scheduleRotationJob = () => {
+  logger.info("Scheduling dynamic QR rotation job (every 30 seconds)");
+  cron.schedule("*/30 * * * * *", runRotationJob);
+};
+
+module.exports = {
+  rotateFacilityQRs,
+  ensureFreshQRCodes,
+  scheduleRotationJob,
+  runRotationJob
+};

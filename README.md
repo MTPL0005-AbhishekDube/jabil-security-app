@@ -28,17 +28,9 @@ npm install
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/CamBlock-app-system
 JWT_SECRET=change-me
-QR_VALIDITY_DAYS=90
 ADMIN_TOKEN_EXPIRE=15d
 RESTORE_TOKEN_EXPIRE=2h
 ALLOWED_ORIGINS=http://localhost:3000
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=user@example.com
-SMTP_PASS=example-password
-EMAIL_FROM=CamBlock App <no-reply@example.com>
-DAILY_QR_CRON=0 0 * * *
-DAILY_QR_TZ=UTC
 ACCESS_CODE_ROTATION_SECONDS=15
 ACCESS_CODE_TTL_SECONDS=20
 RENDER_EXTERNAL_URL=
@@ -105,6 +97,4 @@ Import `CamBlock_App_API.postman_collection.json` (kept up to date with all rout
 - `npm run generate-printable` — create printable sheets for all facilities
 
 ## Deployment Notes
-- Set `DAILY_QR_CRON`/`DAILY_QR_TZ` for daily rotation and email.
-- `RENDER_EXTERNAL_URL` enables keep-alive pings when deployed on Render free tier.
 - CORS origins derive from `ALLOWED_ORIGINS` (comma-separated). Helmet and morgan are enabled by default.

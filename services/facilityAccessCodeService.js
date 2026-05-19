@@ -22,7 +22,7 @@ const ACCESS_CODE_CRON =
   process.env.ACCESS_CODE_CRON ||
   `*/${ACCESS_CODE_ROTATION_SECONDS} * * * * *`;
 const ACCESS_CODE_TIMEZONE =
-  process.env.ACCESS_CODE_TZ || process.env.DAILY_QR_TZ || "UTC";
+  process.env.ACCESS_CODE_TZ;
 
 let isRotationRunning = false;
 let accessCodeCronTask = null;

@@ -21,13 +21,22 @@ const facilitySchema = new mongoose.Schema(
         longitude: Number,
       },
     },
-    notificationEmails: {
-      type: [String],
-      default: [],
-    },
     timezone: {
       type: String,
       trim: true,
+    },
+    qrExpirationValue: {
+      type: Number,
+      default: 30,
+      min: [1, "Value must be at least 1"],
+    },
+    qrExpirationUnit: {
+      type: String,
+      enum: ["seconds", "minutes", "hours", "days"],
+      default: "seconds",
+    },
+    nextRotationAt: {
+      type: Date,
     },
     status: {
       type: String,
@@ -69,8 +78,9 @@ const facilitySchema = new mongoose.Schema(
   }
 );
 
-// Index for faster queries (omit facilityId because unique already creates it)
+// Index for faster queries
 facilitySchema.index({ status: 1 });
 facilitySchema.index({ name: 1 });
+facilitySchema.index({ nextRotationAt: 1 });
 
 module.exports = mongoose.model("Facility", facilitySchema);

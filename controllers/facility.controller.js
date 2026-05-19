@@ -1,6 +1,6 @@
 const Facility = require("../models/Facility.model");
 const Device = require("../models/Device.model");
-const { generateDailyQRsForFacility } = require("../services/dailyQRService");
+const { rotateFacilityQRs } = require("../services/qrRotationService");
 const {
   findFacilityById,
   attachActiveQRCodes,
@@ -8,6 +8,29 @@ const {
 } = require("../services/facilityService");
 const { safeUnlink } = require("../utils/file");
 const QRCodeModel = require("../models/QRCode.model");
+
+const validateExpiration = (value, unit) => {
+  const val = parseInt(value, 10);
+  if (isNaN(val)) return "Expiration value must be a number";
+
+  switch (unit) {
+    case "seconds":
+      if (val < 30 || val > 60) return "Seconds must be between 30 and 60";
+      break;
+    case "minutes":
+      if (val < 1 || val > 60) return "Minutes must be between 1 and 60";
+      break;
+    case "hours":
+      if (val < 1 || val > 24) return "Hours must be between 1 and 24";
+      break;
+    case "days":
+      if (val < 1) return "Days must be at least 1";
+      break;
+    default:
+      return "Invalid expiration unit";
+  }
+  return null;
+};
 
 // @desc    Admin: create facility
 // @route   POST /api/admin/facilities
@@ -17,9 +40,10 @@ exports.createFacility = async (req, res) => {
       name,
       description,
       location,
-      notificationEmails = [],
-      timezone = "UTC",
+      timezone,
       status = "active",
+      qrExpirationValue = 30,
+      qrExpirationUnit = "seconds",
     } = req.body;
 
     if (!name) {
@@ -29,29 +53,28 @@ exports.createFacility = async (req, res) => {
       });
     }
 
-    let emails = [];
-    if (Array.isArray(notificationEmails) && notificationEmails.length) {
-      emails = notificationEmails.map((e) => String(e).trim()).filter(Boolean);
-    } else if (typeof notificationEmails === "string" && notificationEmails) {
-      emails = notificationEmails
-        .split(",")
-        .map((e) => e.trim())
-        .filter(Boolean);
+    const error = validateExpiration(qrExpirationValue, qrExpirationUnit);
+    if (error) {
+      return res.status(400).json({
+        status: "error",
+        message: error,
+      });
     }
 
     const facility = await Facility.create({
       name,
       description,
       location,
-      notificationEmails: emails,
       timezone,
       status,
+      qrExpirationValue,
+      qrExpirationUnit,
       createdBy: req.admin?._id,
     });
 
     let qrResult = null;
     try {
-      qrResult = await generateDailyQRsForFacility(facility, new Date());
+      qrResult = await rotateFacilityQRs(facility);
     } catch (qrErr) {
       console.error("facility create (admin): QR generation failed:", qrErr);
     }
@@ -161,10 +184,35 @@ exports.updateFacility = async (req, res) => {
       "name",
       "description",
       "location",
-      "notificationEmails",
       "timezone",
       "status",
+      "qrExpirationValue",
+      "qrExpirationUnit",
     ];
+
+    // Check if expiration settings changed to trigger rotation
+    const rotationSettingsChanged =
+      (req.body.qrExpirationValue !== undefined &&
+        req.body.qrExpirationValue !== facility.qrExpirationValue) ||
+      (req.body.qrExpirationUnit !== undefined &&
+        req.body.qrExpirationUnit !== facility.qrExpirationUnit);
+
+    if (rotationSettingsChanged) {
+      const error = validateExpiration(
+        req.body.qrExpirationValue !== undefined
+          ? req.body.qrExpirationValue
+          : facility.qrExpirationValue,
+        req.body.qrExpirationUnit !== undefined
+          ? req.body.qrExpirationUnit
+          : facility.qrExpirationUnit
+      );
+      if (error) {
+        return res.status(400).json({
+          status: "error",
+          message: error,
+        });
+      }
+    }
 
     // Check if trying to set to inactive while devices are active
     if (req.body.status && req.body.status !== "active") {
@@ -188,28 +236,22 @@ exports.updateFacility = async (req, res) => {
     });
     facility.updatedAt = new Date();
 
-    // normalize emails
-    if ("notificationEmails" in req.body) {
-      let emails = [];
-      const notificationEmails = req.body.notificationEmails;
-      if (Array.isArray(notificationEmails) && notificationEmails.length) {
-        emails = notificationEmails
-          .map((e) => String(e).trim())
-          .filter(Boolean);
-      } else if (typeof notificationEmails === "string" && notificationEmails) {
-        emails = notificationEmails
-          .split(",")
-          .map((e) => e.trim())
-          .filter(Boolean);
-      }
-      facility.notificationEmails = emails;
-    }
-
     await facility.save();
 
-    return res
-      .status(200)
-      .json({ status: "success", message: "Facility updated", data: facility });
+    // If rotation settings changed, trigger an immediate rotation
+    if (rotationSettingsChanged && facility.status === "active") {
+      try {
+        await rotateFacilityQRs(facility);
+      } catch (qrErr) {
+        console.error("facility update (admin): QR rotation failed:", qrErr);
+      }
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Facility updated",
+      data: facility,
+    });
   } catch (error) {
     return res.status(500).json({
       status: "error",

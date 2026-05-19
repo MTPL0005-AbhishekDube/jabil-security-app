@@ -6,9 +6,9 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const path = require("path");
 const {
-  scheduleDailyJob,
-  runDailyJobOnce,
-} = require("./services/dailyQRService");
+  scheduleRotationJob,
+  runRotationJob,
+} = require("./services/qrRotationService");
 const {
   scheduleAccessCodeJob,
   runAccessCodeJobOnce,
@@ -92,18 +92,18 @@ mongoose
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
 
-      // Start daily QR rotation + emailer
-      logger.info("Initializing daily QR generation system...");
-      scheduleDailyJob();
+      // Start dynamic QR rotation
+      logger.info("Initializing dynamic QR rotation system...");
+      scheduleRotationJob();
 
       // Start short-lived facility access code rotation (6-digit entry/exit codes)
       logger.info("Initializing facility access code rotation system...");
       scheduleAccessCodeJob();
 
-      // Ensure today's QR codes exist immediately on boot
-      logger.info("Running initial daily job on startup...");
-      runDailyJobOnce().catch((err) => {
-        logger.error("Startup daily job failed: " + err.message, { stack: err.stack });
+      // Ensure fresh QR codes exist immediately on boot
+      logger.info("Running initial rotation job on startup...");
+      runRotationJob().catch((err) => {
+        logger.error("Startup rotation job failed: " + err.message, { stack: err.stack });
       });
 
       // Ensure first 6-digit codes are available immediately on boot

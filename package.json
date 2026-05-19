@@ -10,7 +10,6 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "setup": "node scripts/setup.js",
-    "generate-qr": "node scripts/generateQR.js",
     "generate-printable": "node scripts/generate_printable_qrs.js"
   },
   "keywords": [
@@ -32,7 +31,6 @@
     "mongoose": "^8.0.0",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.10.1",
     "qrcode": "^1.5.3"
   },
   "devDependencies": {

@@ -86,6 +86,5 @@ utils/
 ```
 
 ## Deployment Notes
-- `dailyQRService` schedules QR rotation using `DAILY_QR_CRON` and `DAILY_QR_TZ`.
 - Static assets served from `/uploads`.
 - Helmet, CORS (from `ALLOWED_ORIGINS`), and morgan logging enabled globally.
