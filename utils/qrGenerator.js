@@ -63,7 +63,7 @@ exports.generateQRImage = async (data, options = {}) => {
 exports.saveQRImage = async (
   data,
   filename,
-  outputDir = "./uploads/qr-codes"
+  outputDir = "./qr-code-images"
 ) => {
   try {
     // Ensure directory exists

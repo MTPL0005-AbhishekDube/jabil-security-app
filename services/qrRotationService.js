@@ -39,14 +39,11 @@ const calculateNextRotation = (referenceDate, value, unit) => {
  * @returns {Promise<Object>} The fresh QR codes
  */
 const rotateFacilityQRs = async (facility) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const now = new Date();
     
     // Step 1: Delete existing QR codes for this facility
-    await QRCode.deleteMany({ facilityId: facility._id }, { session });
+    await QRCode.deleteMany({ facilityId: facility._id });
 
     // Step 2: Generate new QR codes
     // We use a fixed ID pattern or just fresh IDs. 
@@ -71,8 +68,8 @@ const rotateFacilityQRs = async (facility) => {
       metadata: { location: facility.name, type: "entry" },
       status: "active",
       validFrom: now,
-      validUntil: calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit),
-    }], { session });
+      validUntil: calculateNextRotation(now, facility.qrDurationValue, facility.qrDurationUnit),
+    }]);
 
     // Exit QR
     const exit = await qrGenerator.generateCompleteQRCode(
@@ -93,27 +90,22 @@ const rotateFacilityQRs = async (facility) => {
       metadata: { location: facility.name, type: "exit" },
       status: "active",
       validFrom: now,
-      validUntil: calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit),
-    }], { session });
+      validUntil: calculateNextRotation(now, facility.qrDurationValue, facility.qrDurationUnit),
+    }]);
 
-    // Step 3: Update facility's nextRotationAt
-    const nextRotationAt = calculateNextRotation(now, facility.qrExpirationValue, facility.qrExpirationUnit);
+    // Step 3: Update facility's qrNextRotationAt
+    const qrNextRotationAt = calculateNextRotation(now, facility.qrDurationValue, facility.qrDurationUnit);
     await Facility.updateOne(
       { _id: facility._id },
-      { $set: { nextRotationAt } },
-      { session }
+      { $set: { qrNextRotationAt } }
     );
 
-    await session.commitTransaction();
-    logger.info(`QR codes rotated for facility: ${facility.name}`, { facilityId: facility._id, nextRotationAt });
+    logger.info(`QR codes rotated for facility: ${facility.name}`, { facilityId: facility._id, qrNextRotationAt });
 
     return { entry: entryDoc[0], exit: exitDoc[0] };
   } catch (error) {
-    await session.abortTransaction();
     logger.error(`Failed to rotate QR codes for facility ${facility.name}: ${error.message}`, { stack: error.stack });
     throw error;
-  } finally {
-    session.endSession();
   }
 };
 
@@ -126,10 +118,10 @@ const rotateFacilityQRs = async (facility) => {
 const ensureFreshQRCodes = async (facility) => {
   const now = new Date();
   
-  // If nextRotationAt is in the past, or doesn't exist, rotate now
-  if (!facility.nextRotationAt || facility.nextRotationAt <= now) {
+  // If qrNextRotationAt is in the past, or doesn't exist, rotate now
+  if (!facility.qrNextRotationAt || facility.qrNextRotationAt <= now) {
     await rotateFacilityQRs(facility);
-    // Fetch the updated facility to get the new nextRotationAt
+    // Fetch the updated facility to get the new qrNextRotationAt
     return await Facility.findById(facility._id);
   }
   
@@ -145,8 +137,8 @@ const runRotationJob = async () => {
     const facilitiesToRotate = await Facility.find({
       status: "active",
       $or: [
-        { nextRotationAt: { $lte: now } },
-        { nextRotationAt: { $exists: false } }
+        { qrNextRotationAt: { $lte: now } },
+        { qrNextRotationAt: { $exists: false } }
       ]
     });
 

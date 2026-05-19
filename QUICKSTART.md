@@ -13,7 +13,7 @@ npm install
 ## 2) Configure env
 Copy values into `.env` (see README for full list):
 ```
-PORT=5000
+PORT=5001
 MONGODB_URI=mongodb://localhost:27017/CamBlock-system
 JWT_SECRET=change-me
 ```
@@ -22,11 +22,11 @@ JWT_SECRET=change-me
 ```bash
 npm run dev   # nodemon
 ```
-Server listens at `http://localhost:5000`.
+Server listens at `http://localhost:5001`.
 
 ## 4) Seed a facility (optional public route)
 ```bash
-curl -X POST http://localhost:5000/api/facilities/create-facility \
+curl -X POST http://localhost:5001/api/facilities/create-facility \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Main Building",
@@ -42,15 +42,15 @@ npm run generate-qr -- all            # every facility
 # or for one
 npm run generate-qr -- <facilityId>
 ```
-Tokens and PNGs are printed to the console and `uploads/qr-codes/`.
+Tokens and PNGs are printed to the console and `qr-code-images/`.
 
 ## 6) Get an admin token
 ```bash
-curl -X POST http://localhost:5000/api/auth/admin/register \
+curl -X POST http://localhost:5001/api/auth/admin/register \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"Passw0rd!"}'
 # login (use the same creds if already created)
-curl -X POST http://localhost:5000/api/auth/admin/login \
+curl -X POST http://localhost:5001/api/auth/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"Passw0rd!"}'
 ```
@@ -59,15 +59,15 @@ Copy `data.token` for the next steps.
 ## 7) Admin examples
 ```bash
 # list admins
-curl "http://localhost:5000/api/admin/admins?page=1&limit=10" \
+curl "http://localhost:5001/api/admin/admins?page=1&limit=10" \
   -H "Authorization: Bearer $TOKEN"
 
 # list facilities
-curl "http://localhost:5000/api/admin/facilities?page=1&limit=10" \
+curl "http://localhost:5001/api/admin/facilities?page=1&limit=10" \
   -H "Authorization: Bearer $TOKEN"
 
 # assign visitor info
-curl -X PUT http://localhost:5000/api/admin/devices/test-device-123/visitor \
+curl -X PUT http://localhost:5001/api/admin/devices/test-device-123/visitor \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
 ```
@@ -79,7 +79,7 @@ EXIT_TOKEN="..."    # from QR
 DEVICE_ID="test-device-123"
 
 # Entry (locks camera, reuses same enrollment record on re-entry)
-curl -X POST http://localhost:5000/api/enrollments/scan-entry \
+curl -X POST http://localhost:5001/api/enrollments/scan-entry \
   -H "Content-Type: application/json" \
   -d '{
     "token":"'"'"$ENTRY_TOKEN'"'" ,
@@ -88,7 +88,7 @@ curl -X POST http://localhost:5000/api/enrollments/scan-entry \
   }'
 
 # Exit (unlocks camera)
-curl -X POST http://localhost:5000/api/enrollments/scan-exit \
+curl -X POST http://localhost:5001/api/enrollments/scan-exit \
   -H "Content-Type: application/json" \
   -d '{"token":"'"'"$EXIT_TOKEN'"'" ,"deviceId":"'"'"$DEVICE_ID'"'" }'
 ```
@@ -96,7 +96,7 @@ curl -X POST http://localhost:5000/api/enrollments/scan-exit \
 ## 9) Restore from push (public)
 When a device taps the restore push, call:
 ```bash
-curl -X POST http://localhost:5000/api/enrollments/restore-from-push \
+curl -X POST http://localhost:5001/api/enrollments/restore-from-push \
   -H "Content-Type: application/json" \
   -d '{"token":"RESTORE_TOKEN","deviceId":"'"'"$DEVICE_ID'"'" }'
 ```

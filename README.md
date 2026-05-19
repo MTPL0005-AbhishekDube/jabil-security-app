@@ -25,7 +25,7 @@ npm install
 
 2) Configure environment (`.env`)
 ```
-PORT=5000
+PORT=5001
 MONGODB_URI=mongodb://localhost:27017/CamBlock-app-system
 JWT_SECRET=change-me
 ADMIN_TOKEN_EXPIRE=15d
@@ -49,10 +49,10 @@ npm run generate-qr -- all
 # Specific facility (_id or facilityId)
 npm run generate-qr -- YOUR_FACILITY_ID
 ```
-Generated PNGs land in `uploads/qr-codes/` and emails are sent when recipients are configured.
+Generated PNGs land in `qr-code-images/` and emails are sent when recipients are configured.
 
 ## API Overview
-Base URL: `http://localhost:5000/api`
+Base URL: `http://localhost:5001/api`
 
 ### Public
 - `GET /health`

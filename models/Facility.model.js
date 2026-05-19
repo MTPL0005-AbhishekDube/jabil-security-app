@@ -25,17 +25,17 @@ const facilitySchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    qrExpirationValue: {
+    qrDurationValue: {
       type: Number,
       default: 30,
       min: [1, "Value must be at least 1"],
     },
-    qrExpirationUnit: {
+    qrDurationUnit: {
       type: String,
       enum: ["seconds", "minutes", "hours", "days"],
       default: "seconds",
     },
-    nextRotationAt: {
+    qrNextRotationAt: {
       type: Date,
     },
     status: {
@@ -81,6 +81,6 @@ const facilitySchema = new mongoose.Schema(
 // Index for faster queries
 facilitySchema.index({ status: 1 });
 facilitySchema.index({ name: 1 });
-facilitySchema.index({ nextRotationAt: 1 });
+facilitySchema.index({ qrNextRotationAt: 1 });
 
 module.exports = mongoose.model("Facility", facilitySchema);

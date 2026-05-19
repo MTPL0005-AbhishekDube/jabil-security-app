@@ -29,10 +29,10 @@ const findFacilityById = async (id, adminId = null) => {
 const buildQrImageUrl = (imagePath, req) => {
   if (!imagePath) return null;
   const normalized = imagePath.replace(/\\/g, "/");
-  const uploadsIndex = normalized.lastIndexOf("uploads");
+  const qrCodeImagesIndex = normalized.lastIndexOf("qr-code-images");
   const relativePath =
-    uploadsIndex !== -1
-      ? normalized.slice(uploadsIndex)
+    qrCodeImagesIndex !== -1
+      ? normalized.slice(qrCodeImagesIndex)
       : normalized.replace(/^\.\/?/, "");
   return `${req.protocol}://${req.get("host")}/${relativePath.replace(
     /^\/?/,
@@ -89,7 +89,7 @@ const attachActiveQRCodes = async (facilities, req) => {
   return freshFacilities.map((facility) => {
     const obj = facility.toObject ? facility.toObject() : { ...facility };
     obj.activeQRCodes = grouped[facility._id.toString()] || [];
-    obj.nextRotationAt = facility.nextRotationAt; // Include nextRotationAt for frontend auto-refresh
+    obj.qrNextRotationAt = facility.qrNextRotationAt; // Include qrNextRotationAt for frontend auto-refresh
     obj.accessCodes = {
       entryCode: obj.entryCode || null,
       entryCodeValidUntil: obj.entryCodeValidUntil || null,

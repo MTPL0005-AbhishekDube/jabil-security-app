@@ -42,8 +42,8 @@ exports.createFacility = async (req, res) => {
       location,
       timezone,
       status = "active",
-      qrExpirationValue = 30,
-      qrExpirationUnit = "seconds",
+      qrDurationValue = 30,
+      qrDurationUnit = "seconds",
     } = req.body;
 
     if (!name) {
@@ -53,7 +53,7 @@ exports.createFacility = async (req, res) => {
       });
     }
 
-    const error = validateExpiration(qrExpirationValue, qrExpirationUnit);
+    const error = validateExpiration(qrDurationValue, qrDurationUnit);
     if (error) {
       return res.status(400).json({
         status: "error",
@@ -67,8 +67,8 @@ exports.createFacility = async (req, res) => {
       location,
       timezone,
       status,
-      qrExpirationValue,
-      qrExpirationUnit,
+      qrDurationValue,
+      qrDurationUnit,
       createdBy: req.admin?._id,
     });
 
@@ -186,25 +186,25 @@ exports.updateFacility = async (req, res) => {
       "location",
       "timezone",
       "status",
-      "qrExpirationValue",
-      "qrExpirationUnit",
+      "qrDurationValue",
+      "qrDurationUnit",
     ];
 
     // Check if expiration settings changed to trigger rotation
     const rotationSettingsChanged =
-      (req.body.qrExpirationValue !== undefined &&
-        req.body.qrExpirationValue !== facility.qrExpirationValue) ||
-      (req.body.qrExpirationUnit !== undefined &&
-        req.body.qrExpirationUnit !== facility.qrExpirationUnit);
+      (req.body.qrDurationValue !== undefined &&
+        req.body.qrDurationValue !== facility.qrDurationValue) ||
+      (req.body.qrDurationUnit !== undefined &&
+        req.body.qrDurationUnit !== facility.qrDurationUnit);
 
     if (rotationSettingsChanged) {
       const error = validateExpiration(
-        req.body.qrExpirationValue !== undefined
-          ? req.body.qrExpirationValue
-          : facility.qrExpirationValue,
-        req.body.qrExpirationUnit !== undefined
-          ? req.body.qrExpirationUnit
-          : facility.qrExpirationUnit
+        req.body.qrDurationValue !== undefined
+          ? req.body.qrDurationValue
+          : facility.qrDurationValue,
+        req.body.qrDurationUnit !== undefined
+          ? req.body.qrDurationUnit
+          : facility.qrDurationUnit
       );
       if (error) {
         return res.status(400).json({

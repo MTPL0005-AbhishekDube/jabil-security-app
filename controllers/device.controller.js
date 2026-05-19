@@ -194,9 +194,11 @@ exports.listActiveDevices = async (req, res) => {
 // @route   GET /api/enrollments/admin/active-device/:deviceId
 exports.getEnrollmentDetails = async (req, res) => {
   try {
-    const { deviceId, id } = req.query;
+    const { deviceId, id, enrollmentId } = req.query;
 
-    if (!deviceId || !id) {
+    const enrollmentIdToUse = id || enrollmentId;
+
+    if (!deviceId || !enrollmentIdToUse) {
       return res.status(400).json({
         status: "error",
         message: "deviceId and enrollment id are required",
@@ -205,7 +207,7 @@ exports.getEnrollmentDetails = async (req, res) => {
 
     const [device, enrollment] = await Promise.all([
       Device.findOne({ deviceId }).select("deviceId deviceInfo status"),
-      Enrollment.findById(id)
+      Enrollment.findById(enrollmentIdToUse)
         .select(
           "deviceId facilityId visitorId entryQRCode exitQRCode enrolledAt unenrolledAt"
         )

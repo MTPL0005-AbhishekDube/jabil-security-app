@@ -86,5 +86,5 @@ utils/
 ```
 
 ## Deployment Notes
-- Static assets served from `/uploads`.
+- Static assets served from `/qr-code-images`.
 - Helmet, CORS (from `ALLOWED_ORIGINS`), and morgan logging enabled globally.

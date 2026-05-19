@@ -18,7 +18,7 @@ const generatePrintableQRs = async () => {
 
     // Create output directory
     // Reuse the main QR image directory so everything lives in one place
-    const outputDir = path.join(__dirname, '../uploads/qr-codes');
+    const outputDir = path.join(__dirname, '../qr-code-images');
     if (!fs.existsSync(outputDir)){
         fs.mkdirSync(outputDir);
     }
@@ -39,7 +39,7 @@ const generatePrintableQRs = async () => {
                 light: '#ffffff'
             }
         });
-        console.log(`Saved printable image to: uploads/qr-codes`);
+        console.log(`Saved printable image to: qr-code-images`);
     } else {
         console.log('No Active Entry QR found. Please run "npm run setup" first.');
     }
@@ -60,12 +60,14 @@ const generatePrintableQRs = async () => {
                 light: '#ffffff'
             }
         });
-        console.log(`Saved printable image to: uploads/qr-codes`);
+        console.log(`Saved printable image to: qr-code-images`);
     } else {
         console.log('No Active Exit QR found. Please run "npm run setup" first.');
     }
 
-    console.log('\nDone! You can now print the images in the "uploads/qr-codes" folder.');
+    console.log(
+      '\nDone! You can now print the images in the "qr-code-images" folder.'
+    );
     process.exit(0);
 
   } catch (error) {
