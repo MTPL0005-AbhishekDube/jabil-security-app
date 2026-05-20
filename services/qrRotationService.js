@@ -2,8 +2,8 @@ const Facility = require("../models/Facility.model");
 const QRCode = require("../models/QRCode.model");
 const qrGenerator = require("../utils/qrGenerator");
 const logger = require("../utils/logger");
-const mongoose = require("mongoose");
 const cron = require("node-cron");
+const fs = require("fs").promises;
 
 /**
  * Calculates the next rotation timestamp based on facility settings
@@ -42,10 +42,26 @@ const rotateFacilityQRs = async (facility) => {
   try {
     const now = new Date();
     
-    // Step 1: Delete existing QR codes for this facility
+    // Step 1: Get existing QR codes for this facility to delete their images
+    const existingQRCodes = await QRCode.find({ facilityId: facility._id });
+    
+    // Step 2: Delete old QR code image files
+    for (const qr of existingQRCodes) {
+      if (qr.imagePath) {
+        try {
+          await fs.unlink(qr.imagePath);
+          logger.info(`Deleted old QR image: ${qr.imagePath}`, { facilityId: facility._id });
+        } catch (err) {
+          // File might not exist, log but continue
+          logger.warn(`Failed to delete QR image ${qr.imagePath}: ${err.message}`);
+        }
+      }
+    }
+    
+    // Step 3: Delete existing QR codes from database
     await QRCode.deleteMany({ facilityId: facility._id });
 
-    // Step 2: Generate new QR codes
+    // Step 4: Generate new QR codes
     // We use a fixed ID pattern or just fresh IDs. 
     // Since we decoupled, we just need a valid Entry and Exit for this facility.
     
@@ -93,7 +109,7 @@ const rotateFacilityQRs = async (facility) => {
       validUntil: calculateNextRotation(now, facility.qrDurationValue, facility.qrDurationUnit),
     }]);
 
-    // Step 3: Update facility's qrNextRotationAt
+    // Step 5: Update facility's qrNextRotationAt
     const qrNextRotationAt = calculateNextRotation(now, facility.qrDurationValue, facility.qrDurationUnit);
     await Facility.updateOne(
       { _id: facility._id },

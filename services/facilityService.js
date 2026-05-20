@@ -3,6 +3,7 @@ const Facility = require("../models/Facility.model");
 const QRCode = require("../models/QRCode.model");
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
+const ForceExitRequest = require("../models/ForceExitRequest.model");
 const mdmService = require("../utils/mdmService");
 const { ensureFreshQRCodes } = require("./qrRotationService");
 
@@ -135,6 +136,9 @@ const detachDevicesAndEnrollments = async (facilityId) => {
     enrollment.status = "expired";
     enrollment.unenrolledAt = new Date();
     await enrollment.save();
+
+    // Clean up any force exit requests for this device
+    await ForceExitRequest.deleteMany({ deviceId: device?._id });
   }
 
   // Detach any devices still pointing to this facility (even if not in active enrollment)

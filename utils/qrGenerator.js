@@ -109,8 +109,13 @@ exports.generateCompleteQRCode = async (
       process.env.QR_ENCODE_MODE === "deeplink" ? "deeplink" : "token";
     const qrContent = encodeMode === "deeplink" ? deepLink : qrData.token;
 
-    // Generate and save image
-    const filename = `${qrData.id}.png`;
+    // Generate filename with facility name and date
+    const facilityName = metadata.location || "facility";
+    const typeLabel = metadata.type === "entry" ? "Entry_Code" : "Exit_Code";
+    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const sanitizedFacilityName = facilityName.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    const filename = `${sanitizedFacilityName}_${typeLabel}_${date}.png`;
+
     const imagePath = await this.saveQRImage(qrContent, filename);
 
     return {

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Enrollment = require("../models/Enrollment.model");
 const Device = require("../models/Device.model");
 const QRCode = require("../models/QRCode.model");
+const ForceExitRequest = require("../models/ForceExitRequest.model");
 const mdmService = require("../utils/mdmService");
 const { verifyToken } = require("../utils/jwt");
 const { generateNextVisitorId } = require("../utils/visitorId");
@@ -343,23 +344,23 @@ exports.scanEntry = async (req, res) => {
       });
     }
 
-    // Check if device is already enrolled (double entry)
+    // Check if device has any enrollment (active or completed) in this facility
     const existingEnrollment = await Enrollment.findOne({
       deviceId: device._id,
-      status: "active",
+      facilityId: qrCode.facilityId._id,
     }).populate("facilityId");
 
     logger.debug("Checking existing enrollment", {
       requestId,
       deviceId,
+      facilityId: qrCode.facilityId._id,
       hasExistingEnrollment: !!existingEnrollment,
-      existingFacility: existingEnrollment?.facilityId,
+      existingStatus: existingEnrollment?.status,
     });
 
     if (existingEnrollment) {
-      // EDGE CASE 1: Device is already enrolled in the SAME facility
-      // Action: Return 200 OK (Idempotent success) but do not create new enrollment
-      if (String(existingEnrollment.facilityId._id || existingEnrollment.facilityId) === String(qrCode.facilityId._id)) {
+      // If enrollment is active, return success (idempotent)
+      if (existingEnrollment.status === "active") {
         logger.info("Device already enrolled in this facility", {
           requestId,
           deviceId,
@@ -378,19 +379,60 @@ exports.scanEntry = async (req, res) => {
         });
       }
 
-      // EDGE CASE 2: Device is enrolled in a DIFFERENT facility
-      // Action: Return 409 Conflict
-      const error = `Device is already enrolled in another facility (${existingEnrollment.facilityId?.name || 'Unknown'}). Please scan exit there first.`;
-      logger.warn("Device enrolled in different facility", {
+      // If enrollment is completed/expired, update it instead of creating new
+      logger.info("Updating existing enrollment instead of creating new", {
         requestId,
         deviceId,
-        currentFacility: existingEnrollment.facilityId,
-        attemptedFacility: qrCode.facilityId._id,
+        facilityId: qrCode.facilityId._id,
+        enrollmentId: existingEnrollment._id,
       });
 
-      return res.status(409).json({
-        status: "error",
-        message: error,
+      existingEnrollment.status = "active";
+      existingEnrollment.entryQRCode = qrCode._id;
+      existingEnrollment.exitQRCode = null;
+      existingEnrollment.enrolledAt = new Date();
+      existingEnrollment.unenrolledAt = null;
+      await existingEnrollment.save();
+
+      // Update device status
+      device.status = "active";
+      device.currentFacility = qrCode.facilityId._id;
+      device.lastEnrollment = existingEnrollment._id;
+      device.lastActivity = new Date();
+      await device.save();
+
+      // Lock camera via MDM
+      try {
+        await mdmService.lockCamera(deviceId, deviceInfo.platform);
+        logger.info("MDM: Camera locked successfully", {
+          requestId,
+          deviceId,
+          platform: deviceInfo.platform,
+        });
+      } catch (mdmError) {
+        logger.error("MDM: Failed to lock camera", {
+          requestId,
+          deviceId,
+          error: mdmError.message,
+        });
+      }
+
+      logger.info("Enrollment updated successfully", {
+        requestId,
+        deviceId,
+        facilityId: qrCode.facilityId._id,
+        enrollmentId: existingEnrollment._id,
+        visitorId: existingEnrollment.visitorId,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "Enrollment updated successfully",
+        data: {
+          enrollment: existingEnrollment,
+          visitorId: existingEnrollment.visitorId,
+          action: "lock",
+        },
       });
     }
 
@@ -757,6 +799,24 @@ exports.scanExit = async (req, res) => {
 
     // Record scan
     await qrCode.recordScan();
+
+    // Delete any pending/approved force exit requests for this device since it has now exited normally
+    try {
+      const deletedRequests = await ForceExitRequest.deleteMany({ deviceId: device._id });
+      if (deletedRequests.deletedCount > 0) {
+        logger.info("Cleanup: Deleted pending force exit requests on normal exit", {
+          requestId,
+          deviceId: device.deviceId,
+          count: deletedRequests.deletedCount,
+        });
+      }
+    } catch (cleanupError) {
+      logger.error("Cleanup: Failed to delete force exit requests on normal exit", {
+        requestId,
+        deviceId: device.deviceId,
+        error: cleanupError.message,
+      });
+    }
 
     // Return response in requested format
     logger.info("Exit scan completed successfully", {
