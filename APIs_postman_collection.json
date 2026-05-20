@@ -294,7 +294,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{api_base}}/admin/facilities?page=1&limit=10&status=&q=",
+              "raw": "{{api_base}}/admin/facilities?page=1&limit=10&status=&q=&date=&all=",
               "host": [
                 "{{base_url}}"
               ],
@@ -319,6 +319,16 @@
                 {
                   "key": "q",
                   "value": ""
+                },
+                {
+                  "key": "date",
+                  "value": "",
+                  "description": "YYYY-MM-DD"
+                },
+                {
+                  "key": "all",
+                  "value": "",
+                  "description": "Set to true to get all facilities without pagination"
                 }
               ]
             }
@@ -413,13 +423,14 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{api_base}}/admin/devices/active?page=1&limit=10&q=",
+              "raw": "{{api_base}}/admin/v2/devices/active?page=1&limit=10&q=&date=&status=&facilityId=&facilityName=",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "api",
                 "admin",
+                "v2",
                 "devices",
                 "active"
               ],
@@ -434,18 +445,39 @@
                 },
                 {
                   "key": "q",
-                  "value": ""
+                  "value": "",
+                  "description": "Search by deviceId, name, model, or visitorId"
+                },
+                {
+                  "key": "date",
+                  "value": "",
+                  "description": "Filter by enrollment date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "active or inactive"
+                },
+                {
+                  "key": "facilityId",
+                  "value": "",
+                  "description": "Filter by specific facility ID"
+                },
+                {
+                  "key": "facilityName",
+                  "value": "",
+                  "description": "Filter by facility name (dynamic search)"
                 }
               ]
             }
           }
         },
         {
-          "name": "Get Specific Active Device",
+          "name": "Get Enrollment Details",
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{api_base}}/admin/devices/{{device_id}}/active-enrollment",
+              "raw": "{{api_base}}/admin/devices/enrollment?deviceId={{device_id}}&id={{enrollment_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -453,8 +485,18 @@
                 "api",
                 "admin",
                 "devices",
-                "{{device_id}}",
-                "active-enrollment"
+                "enrollment"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{device_id}}"
+                },
+                {
+                  "key": "id",
+                  "value": "{{enrollment_id}}",
+                  "description": "The enrollment ID"
+                }
               ]
             }
           }
@@ -586,16 +628,39 @@
               }
             ],
             "url": {
-              "raw": "{{api_base}}/force-exit/pendingList?facilityId={{facility_id}}",
+              "raw": "{{api_base}}/force-exit/pendingList?page=1&limit=10&status=pending&q=&date=&facilityId={{facility_id}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "api",
                 "force-exit",
-                "pending"
+                "pendingList"
               ],
               "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "pending, approved, denied, or completed"
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Search by visitorId"
+                },
+                {
+                  "key": "date",
+                  "value": "",
+                  "description": "YYYY-MM-DD"
+                },
                 {
                   "key": "facilityId",
                   "value": "{{facility_id}}"
@@ -615,14 +680,24 @@
               }
             ],
             "url": {
-              "raw": "{{api_base}}/force-exit/pendingList",
+              "raw": "{{api_base}}/force-exit/pendingList?page=1&limit=10",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "api",
                 "force-exit",
-                "pending"
+                "pendingList"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
               ]
             }
           }

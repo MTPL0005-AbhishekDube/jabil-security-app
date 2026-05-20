@@ -800,18 +800,21 @@ exports.scanExit = async (req, res) => {
     // Record scan
     await qrCode.recordScan();
 
-    // Delete any pending/approved force exit requests for this device since it has now exited normally
+    // Mark any pending/approved force exit requests for this device as completed since it has now exited normally
     try {
-      const deletedRequests = await ForceExitRequest.deleteMany({ deviceId: device._id });
-      if (deletedRequests.deletedCount > 0) {
-        logger.info("Cleanup: Deleted pending force exit requests on normal exit", {
+      const updatedRequests = await ForceExitRequest.updateMany(
+        { deviceId: device._id, status: { $in: ["pending", "approved"] } },
+        { status: "completed", completedAt: new Date() }
+      );
+      if (updatedRequests.modifiedCount > 0) {
+        logger.info("Cleanup: Marked force exit requests as completed on normal exit", {
           requestId,
           deviceId: device.deviceId,
-          count: deletedRequests.deletedCount,
+          count: updatedRequests.modifiedCount,
         });
       }
     } catch (cleanupError) {
-      logger.error("Cleanup: Failed to delete force exit requests on normal exit", {
+      logger.error("Cleanup: Failed to update force exit requests on normal exit", {
         requestId,
         deviceId: device.deviceId,
         error: cleanupError.message,

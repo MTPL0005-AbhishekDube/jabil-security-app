@@ -70,6 +70,9 @@ forceExitRequestSchema.index({ deviceId: 1, status: 1 });
 forceExitRequestSchema.index({ status: 1, requestedAt: -1 });
 forceExitRequestSchema.index({ facilityId: 1, status: 1 });
 
+// Automatic deletion after 7 days (604800 seconds)
+forceExitRequestSchema.index({ createdAt: 1 }, { expireAfterSeconds: 604800 });
+
 // Ensure only one pending request per device
 forceExitRequestSchema.index({ deviceId: 1, status: 1 }, {
   unique: true,

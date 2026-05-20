@@ -100,14 +100,52 @@ exports.createFacility = async (req, res) => {
 // @route   GET /api/admin/facilities
 exports.getAllFacilities = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, q } = req.query;
+    const { page = 1, limit = 10, status, q, date, all } = req.query;
 
     const filter = { createdBy: req.admin?._id };
-    if (status) filter.status = status;
+    
+    // 1. Status Filter (active, inactive)
+    if (status) {
+      // Allow multiple statuses separated by comma
+      const statusArray = status.split(",").map((s) => s.trim());
+      filter.status = { $in: statusArray };
+    }
+    
+    // 2. Search Filter (by name)
     if (q) {
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
       ];
+    }
+
+    // 3. Date Filter (YYYY-MM-DD)
+    if (date) {
+      const rawDate = String(date).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        const dayStart = new Date(`${rawDate}T00:00:00.000Z`);
+        const dayEnd = new Date(`${rawDate}T23:59:59.999Z`);
+        
+        if (!Number.isNaN(dayStart.getTime()) && !Number.isNaN(dayEnd.getTime())) {
+          filter.createdAt = {
+            $gte: dayStart,
+            $lte: dayEnd,
+          };
+        }
+      }
+    }
+
+    // Handle 'all' parameter for dynamic dropdowns/filters
+    if (all === "true") {
+      const items = await Facility.find(filter).sort({ name: 1 });
+      const itemsWithQrs = await attachActiveQRCodes(items, req);
+      
+      return res.status(200).json({
+        status: "success",
+        data: {
+          items: itemsWithQrs,
+          total: items.length,
+        },
+      });
     }
 
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);

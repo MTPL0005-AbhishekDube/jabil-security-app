@@ -137,8 +137,11 @@ const detachDevicesAndEnrollments = async (facilityId) => {
     enrollment.unenrolledAt = new Date();
     await enrollment.save();
 
-    // Clean up any force exit requests for this device
-    await ForceExitRequest.deleteMany({ deviceId: device?._id });
+    // Mark any force exit requests for this device as completed (instead of deleting)
+    await ForceExitRequest.updateMany(
+      { deviceId: device?._id, status: { $in: ["pending", "approved"] } },
+      { status: "completed", completedAt: new Date() }
+    );
   }
 
   // Detach any devices still pointing to this facility (even if not in active enrollment)

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Device = require("../models/Device.model");
 const Enrollment = require("../models/Enrollment.model");
 const Facility = require("../models/Facility.model");
@@ -6,13 +7,13 @@ const Facility = require("../models/Facility.model");
 // @route   GET /api/admin/v2/devices/active
 exports.listActiveDevices = async (req, res) => {
   try {
-    const { page = 1, limit = 10, q, date } = req.query;
+    const { page = 1, limit = 10, q, date, status, facilityId, facilityName } = req.query;
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
     const skip = (pageNum - 1) * limitNum;
 
     // Find facilities created by this admin
-    const adminFacilities = await Facility.find({ createdBy: req.admin?._id }).select("_id");
+    const adminFacilities = await Facility.find({ createdBy: req.admin?._id }).select("_id name");
     const facilityIds = adminFacilities.map(f => f._id);
 
     // Filter for basic search
@@ -24,6 +25,12 @@ exports.listActiveDevices = async (req, res) => {
         { "deviceInfo.deviceName": regex },
         { "deviceInfo.model": regex },
       ];
+    }
+
+    // Status Filter (active, inactive)
+    if (status) {
+      const statusArray = status.split(",").map((s) => s.trim());
+      searchFilter.status = { $in: statusArray };
     }
 
     let enrolledDateMatch = null;
@@ -84,6 +91,44 @@ exports.listActiveDevices = async (req, res) => {
           ],
         },
       });
+    }
+
+    // Facility Filter Logic (by ID or Name)
+    if (facilityId || facilityName) {
+      let targetFacilityIds = [];
+      
+      if (facilityId) {
+        targetFacilityIds.push(new mongoose.Types.ObjectId(facilityId));
+      } else if (facilityName) {
+        // Find facility IDs matching the name among admin's facilities
+        const matchingFacilities = adminFacilities.filter(f => 
+          f.name.toLowerCase().includes(facilityName.toLowerCase())
+        );
+        targetFacilityIds = matchingFacilities.map(f => f._id);
+      }
+
+      if (targetFacilityIds.length > 0) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { currentFacility: { $in: targetFacilityIds } },
+              { "lastEnrollmentDoc.facilityId": { $in: targetFacilityIds } }
+            ]
+          }
+        });
+      } else if (facilityName) {
+        // If facilityName was provided but no match found, return empty results
+        return res.status(200).json({
+          status: "success",
+          data: {
+            items: [],
+            page: pageNum,
+            limit: limitNum,
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
     }
 
     pipeline.push(

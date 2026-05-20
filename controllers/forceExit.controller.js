@@ -303,10 +303,17 @@ exports.completeForceExit = async (req, res) => {
     device.currentFacility = null;
     await device.save();
 
-    // Delete the force exit request instead of marking as completed as requested
-    await ForceExitRequest.deleteMany({ deviceId: device._id });
+    // Mark force exit request as completed
+    const latestApprovedRequest = await ForceExitRequest.findOne({
+      deviceId: device._id,
+      status: "approved",
+    }).sort({ approvedAt: -1 });
 
-    logger.info("Force exit completed successfully and request record deleted", {
+    if (latestApprovedRequest) {
+      await latestApprovedRequest.complete();
+    }
+
+    logger.info("Force exit completed successfully and request marked as completed", {
       requestId,
       deviceId,
       unlockSuccess: unlockResult.success,
@@ -336,11 +343,11 @@ exports.completeForceExit = async (req, res) => {
   }
 };
 
-// @desc    Get pending force exit requests for admin
+// @desc    Get force exit requests list for admin (with filters, search, and pagination)
 // @route   GET /api/force-exit/pendingList
 exports.getPendingRequestsList = async (req, res) => {
   const requestId = req.requestId || new mongoose.Types.ObjectId();
-  const { facilityId } = req.query;
+  const { facilityId, status, date, page = 1, limit = 10, q } = req.query;
 
   try {
     // Find facilities created by this admin
@@ -349,9 +356,10 @@ exports.getPendingRequestsList = async (req, res) => {
     }).select("_id");
     const facilityIds = adminFacilities.map((f) => f._id);
 
-    let queryFacilityId = facilityId;
+    // Build query object
+    const query = {};
 
-    // If facilityId is provided in query, verify it belongs to the admin
+    // 1. Facility Filter
     if (facilityId) {
       const facility = await Facility.findOne({
         _id: facilityId,
@@ -364,23 +372,60 @@ exports.getPendingRequestsList = async (req, res) => {
             "You do not have permission to access requests for this facility",
         });
       }
-      queryFacilityId = facility._id;
+      query.facilityId = facility._id;
     } else {
-      // If no facilityId provided, default to all facilities owned by admin
-      queryFacilityId = { $in: facilityIds };
+      query.facilityId = { $in: facilityIds };
     }
 
-    const pendingRequests = await ForceExitRequest.find({
-      status: "pending",
-      facilityId: queryFacilityId,
-    })
-      .populate("deviceId", "deviceId deviceInfo visitorId pushToken")
-      .populate("facilityId", "name location")
-      .sort({ requestedAt: -1 })
-      .lean();
+    // 2. Status Filter (default to pending if not provided, or use provided status)
+    if (status) {
+      // Allow multiple statuses separated by comma or a single status
+      const statusArray = status.split(",").map(s => s.trim());
+      query.status = { $in: statusArray };
+    } else {
+      // Default behavior: if no status provided, show pending
+      query.status = "pending";
+    }
+
+    // 3. Date Filter (YYYY-MM-DD)
+    if (date) {
+      const rawDate = String(date).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        const dayStart = new Date(`${rawDate}T00:00:00.000Z`);
+        const dayEnd = new Date(`${rawDate}T23:59:59.999Z`);
+        
+        if (!Number.isNaN(dayStart.getTime()) && !Number.isNaN(dayEnd.getTime())) {
+          query.requestedAt = {
+            $gte: dayStart,
+            $lte: dayEnd,
+          };
+        }
+      }
+    }
+
+    // 4. Search Filter (by visitorId)
+    if (q) {
+      query.visitorId = { $regex: q, $options: "i" };
+    }
+
+    // Pagination setup
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [requests, total] = await Promise.all([
+      ForceExitRequest.find(query)
+        .populate("deviceId", "deviceId deviceInfo visitorId pushToken")
+        .populate("facilityId", "name location")
+        .sort({ requestedAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      ForceExitRequest.countDocuments(query),
+    ]);
 
     // Rename keys: deviceId -> deviceDetails, facilityId -> facilityDetail
-    const formattedRequests = pendingRequests.map((req) => {
+    const formattedRequests = requests.map((req) => {
       const { deviceId, facilityId, ...rest } = req;
       return {
         ...rest,
@@ -389,22 +434,27 @@ exports.getPendingRequestsList = async (req, res) => {
       };
     });
 
-    logger.info("Pending requests retrieved", {
+    logger.info("Force exit requests retrieved with filters and pagination", {
       requestId,
       count: formattedRequests.length,
-      facilityId,
+      total,
+      query,
     });
 
     res.status(200).json({
       status: "success",
-      message: "Pending requests retrieved successfully",
+      message: "Requests retrieved successfully",
       data: {
         requests: formattedRequests,
         count: formattedRequests.length,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
-    logger.error("Get pending requests failed", {
+    logger.error("Get requests list failed", {
       requestId,
       error: error.message,
       stack: error.stack,
