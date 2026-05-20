@@ -130,14 +130,22 @@ exports.listActiveDevices = async (req, res) => {
             {
               $lookup: {
                 from: "facilities",
-                localField: "currentFacility",
-                foreignField: "_id",
-                as: "currentFacilityDoc",
+                let: { cf: "$currentFacility", lf: "$lastEnrollmentDoc.facilityId" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$_id", { $ifNull: ["$$cf", "$$lf"] }]
+                      }
+                    }
+                  }
+                ],
+                as: "facilityDoc",
               },
             },
             {
               $unwind: {
-                path: "$currentFacilityDoc",
+                path: "$facilityDoc",
                 preserveNullAndEmptyArrays: true,
               },
             },
@@ -145,10 +153,10 @@ exports.listActiveDevices = async (req, res) => {
               $addFields: {
                 currentFacility: {
                   $cond: [
-                    { $ifNull: ["$currentFacilityDoc", false] },
+                    { $ifNull: ["$facilityDoc", false] },
                     {
-                      _id: "$currentFacilityDoc._id",
-                      name: "$currentFacilityDoc.name",
+                      _id: "$facilityDoc._id",
+                      name: "$facilityDoc.name",
                     },
                     null,
                   ],
@@ -158,7 +166,7 @@ exports.listActiveDevices = async (req, res) => {
             {
               $project: {
                 lastEnrollmentDoc: 0,
-                currentFacilityDoc: 0,
+                facilityDoc: 0,
               },
             },
           ],

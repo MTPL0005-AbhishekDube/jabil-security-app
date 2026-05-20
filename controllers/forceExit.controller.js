@@ -64,45 +64,25 @@ exports.createForceExitRequest = async (req, res) => {
       });
     }
 
-    // Check if device already has a pending request
-    const hasPending = await ForceExitRequest.findOne({
-      deviceId: device._id,
-      status: "pending",
-    });
+    // Update or Create force exit request
+    const forceExitRequest = await ForceExitRequest.findOneAndUpdate(
+      { deviceId: device._id, status: "pending" },
+      {
+        visitorId: device.lastEnrollment.visitorId,
+        facilityId: device.currentFacility,
+        reason,
+        requestedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
 
-    logger.debug("Pending request check", {
-      requestId,
-      deviceId,
-      hasPendingRequest: !!hasPending,
-    });
-
-    if (hasPending) {
-      const error = "A force exit request is already pending for this device";
-      logger.warn(error, {
-        requestId,
-        deviceId,
-      });
-
-      return res.status(409).json({
-        status: "error",
-        message: error,
-      });
-    }
-
-    // Create force exit request
-    const forceExitRequest = await ForceExitRequest.create({
-      deviceId: device._id,
-      visitorId: device.lastEnrollment.visitorId,
-      facilityId: device.currentFacility,
-      reason,
-    });
-
-    logger.info("Force exit request created", {
+    logger.info("Force exit request processed (created/updated)", {
       requestId,
       forceExitRequestId: forceExitRequest._id,
       deviceId,
       facilityId: device.currentFacility,
       visitorId: forceExitRequest.visitorId,
+      isNew: forceExitRequest.createdAt === forceExitRequest.updatedAt,
     });
 
     res.status(201).json({
@@ -190,7 +170,7 @@ exports.getRequestStatus = async (req, res) => {
       message: "Request status retrieved successfully",
       data: {
         hasRequest: true,
-        requestId: latestRequest.requestId,
+        requestId: latestRequest._id,
         status: latestRequest.status,
         requestedAt: latestRequest.requestedAt,
         approvedAt: latestRequest.approvedAt,
@@ -323,13 +303,12 @@ exports.completeForceExit = async (req, res) => {
     device.currentFacility = null;
     await device.save();
 
-    // Mark force exit request as completed
-    await forceExitRequest.complete();
+    // Delete the force exit request instead of marking as completed as requested
+    await ForceExitRequest.deleteMany({ deviceId: device._id });
 
-    logger.info("Force exit completed successfully", {
+    logger.info("Force exit completed successfully and request record deleted", {
       requestId,
       deviceId,
-      forceExitRequestId: forceExitRequest.requestId,
       unlockSuccess: unlockResult.success,
     });
 
@@ -397,11 +376,22 @@ exports.getPendingRequestsList = async (req, res) => {
     })
       .populate("deviceId", "deviceId deviceInfo visitorId pushToken")
       .populate("facilityId", "name location")
-      .sort({ requestedAt: -1 });
+      .sort({ requestedAt: -1 })
+      .lean();
+
+    // Rename keys: deviceId -> deviceDetails, facilityId -> facilityDetail
+    const formattedRequests = pendingRequests.map((req) => {
+      const { deviceId, facilityId, ...rest } = req;
+      return {
+        ...rest,
+        deviceDetails: deviceId,
+        facilityDetail: facilityId,
+      };
+    });
 
     logger.info("Pending requests retrieved", {
       requestId,
-      count: pendingRequests.length,
+      count: formattedRequests.length,
       facilityId,
     });
 
@@ -409,8 +399,8 @@ exports.getPendingRequestsList = async (req, res) => {
       status: "success",
       message: "Pending requests retrieved successfully",
       data: {
-        requests: pendingRequests,
-        count: pendingRequests.length,
+        requests: formattedRequests,
+        count: formattedRequests.length,
       },
     });
   } catch (error) {
@@ -432,12 +422,12 @@ exports.getPendingRequestsList = async (req, res) => {
 // @route   POST /api/force-exit/approve/:requestId
 exports.approveRequest = async (req, res) => {
   const requestId = req.requestId || new mongoose.Types.ObjectId();
-  const { id } = req.params;
+  const { requestId: forceExitRequestId } = req.params;
   const { adminNotes } = req.body;
   const adminId = req.admin?._id;
 
   try {
-    if (!id) {
+    if (!forceExitRequestId) {
       const error = "Request ID is required";
 
       return res.status(400).json({
@@ -446,13 +436,13 @@ exports.approveRequest = async (req, res) => {
       });
     }
 
-    const forceExitRequest = await ForceExitRequest.findById(id).populate(
+    const forceExitRequest = await ForceExitRequest.findById(forceExitRequestId).populate(
       "deviceId"
     );
 
     logger.debug("Force exit request lookup", {
       requestId,
-      forceExitRequestId: id,
+      forceExitRequestId,
       requestFound: !!forceExitRequest,
       currentStatus: forceExitRequest?.status,
     });
@@ -550,7 +540,7 @@ exports.approveRequest = async (req, res) => {
       status: "success",
       message: "Force exit request approved successfully",
       data: {
-        requestId: forceExitRequest.requestId,
+        requestId: forceExitRequest._id,
         status: forceExitRequest.status,
         approvedAt: forceExitRequest.approvedAt,
         pushNotificationSent: forceExitRequest.pushNotificationSent,
@@ -576,12 +566,12 @@ exports.approveRequest = async (req, res) => {
 // @route   POST /api/force-exit/deny/:requestId
 exports.denyRequest = async (req, res) => {
   const requestId = req.requestId || new mongoose.Types.ObjectId();
-  const { id } = req.params;
+  const { requestId: forceExitRequestId } = req.params;
   const { adminNotes } = req.body;
   const adminId = req.admin?._id;
 
   try {
-    if (!id) {
+    if (!forceExitRequestId) {
       const error = "Request ID is required";
 
       return res.status(400).json({
@@ -590,7 +580,7 @@ exports.denyRequest = async (req, res) => {
       });
     }
 
-    const forceExitRequest = await ForceExitRequest.findById(id).populate(
+    const forceExitRequest = await ForceExitRequest.findById(forceExitRequestId).populate(
       "deviceId"
     );
 
@@ -662,7 +652,7 @@ exports.denyRequest = async (req, res) => {
       status: "success",
       message: "Force exit request denied successfully",
       data: {
-        requestId: forceExitRequest.requestId,
+        requestId: forceExitRequest._id,
         status: forceExitRequest.status,
         deniedAt: forceExitRequest.deniedAt,
       },
