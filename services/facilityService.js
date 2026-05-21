@@ -21,7 +21,11 @@ const findFacilityById = async (id, adminId = null) => {
 
   let facility = await Facility.findOne(query);
   if (facility && facility.status === "active") {
-    facility = await ensureFreshQRCodes(facility);
+    try {
+      facility = await ensureFreshQRCodes(facility);
+    } catch (err) {
+      console.error(`Failed to ensure fresh QR codes for facility ${facility._id}:`, err.message);
+    }
   }
   return facility;
 };
@@ -51,7 +55,12 @@ const attachActiveQRCodes = async (facilities, req) => {
   const freshFacilities = await Promise.all(
     facilities.map(async (f) => {
       if (f.status === "active") {
-        return await ensureFreshQRCodes(f);
+        try {
+          return await ensureFreshQRCodes(f);
+        } catch (err) {
+          console.error(`Failed to ensure fresh QR codes for facility ${f._id}:`, err.message);
+          return f;
+        }
       }
       return f;
     })
